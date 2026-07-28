@@ -1,0 +1,22 @@
+module Base
+{
+    craftRecipe BindSurvivalPlanner
+    {
+        timedAction = Making,
+        time = 120,
+        Tags = AnySurfaceCraft,
+        category = Miscellaneous,
+        xpAward = Tailoring:3,
+        inputs
+        {
+            item 3 [Base.Notebook],
+            item 1 tags[base:thread],
+            item 1 tags[base:sewingneedle] mode:keep flags[MayDegradeLight],
+            item 1 tags[base:write] mode:keep flags[MayDegradeLight],
+        }
+        outputs
+        {
+            item 1 SurvivalPlannerList.SurvivalPlanner,
+        }
+    }
+}

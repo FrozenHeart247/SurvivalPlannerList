@@ -1,0 +1,5 @@
+version=1
+title=Survival Planner
+description=A physical task planner for Project Zomboid Build 42.19. Create active and planned tasks, add subtasks, pick item icons, link loot targets, archive completed work, and highlight tracked items in inventory and nearby loot.
+tags=Build 42;QoL;Items;Interface
+visibility=private

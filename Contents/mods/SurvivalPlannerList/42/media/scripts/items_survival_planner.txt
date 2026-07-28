@@ -1,0 +1,19 @@
+module SurvivalPlannerList
+{
+    item SurvivalPlanner
+    {
+        DisplayName = Survival Planner,
+        DisplayCategory = Literature,
+        ItemType = base:literature,
+        Weight = 1.5,
+        Icon = Notebook,
+        IconsForTexture = Notebook,
+        StaticModel = EmptyNotebook,
+        WorldStaticModel = EmptyNotebook,
+        Tooltip = Tooltip_SurvivalPlannerList_Planner,
+        CanBeWrite = false,
+        BoredomChange = -5,
+        StressChange = -5,
+        UnhappyChange = 0,
+    }
+}

@@ -1,0 +1,8 @@
+name=Survival Planner
+id=SurvivalPlannerList
+description=A physical survival planner with tasks, subtasks, item goals, and inventory highlighting.
+author=krist
+modversion=0.2.0
+versionMin=42.19
+category=QoL
+tags=Build42;Multiplayer;Interface;Items
