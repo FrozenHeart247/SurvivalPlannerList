@@ -49,60 +49,81 @@ local function updateFoundAlert(pane, visibleTypes)
     end
 end
 
+local function restoreBaseHighlights(pane)
+    if pane.itemsToHighlight == pane.splHighlightProxy then
+        pane.itemsToHighlight = pane.splBaseHighlightMap
+        pane.itemsToHighlightOwner = pane.splBaseHighlightOwner
+    end
+    pane.splHighlightProxy = nil
+    pane.splHighlightItems = nil
+end
+
+local function installHighlightProxy(pane, baseMap, baseOwner)
+    pane.splBaseHighlightMap = baseMap
+    pane.splBaseHighlightOwner = baseOwner
+
+    local ownerPane = pane
+    pane.splHighlightProxy = setmetatable({}, {
+        __index = function(_, inventoryItem)
+            if ownerPane.splHighlightItems and ownerPane.splHighlightItems[inventoryItem] then
+                ownerPane.splPendingHighlight = true
+                return true
+            end
+            ownerPane.splPendingHighlight = nil
+            if ownerPane.splBaseHighlightMap then
+                return ownerPane.splBaseHighlightMap[inventoryItem]
+            end
+            return nil
+        end,
+    })
+    pane.itemsToHighlight = pane.splHighlightProxy
+    pane.itemsToHighlightOwner = baseOwner or pane.parent or pane
+end
+
+local function refreshPlannerHighlights(pane)
+    if not pane.itemslist then
+        restoreBaseHighlights(pane)
+        pane.splVisibleTrackedTypes = {}
+        pane.splTrackingRevision = SurvivalPlannerList._trackingRevision
+        return
+    end
+
+    local player = getSpecificPlayer(pane.player or 0)
+    if not player then
+        return
+    end
+
+    local baseMap = pane.itemsToHighlight
+    local baseOwner = pane.itemsToHighlightOwner
+    if baseMap == pane.splHighlightProxy then
+        baseMap = pane.splBaseHighlightMap
+        baseOwner = pane.splBaseHighlightOwner
+    end
+
+    local targets = SurvivalPlannerList.getTrackedTargetsForPlayer(player)
+    local ourHighlights, visibleTypes = collectHighlights(pane, targets)
+    updateFoundAlert(pane, visibleTypes)
+    pane.splHighlightItems = ourHighlights
+    pane.splTrackingRevision = SurvivalPlannerList._trackingRevision
+
+    if not ourHighlights then
+        pane.splBaseHighlightMap = baseMap
+        pane.splBaseHighlightOwner = baseOwner
+        pane.itemsToHighlight = baseMap
+        pane.itemsToHighlightOwner = baseOwner
+        pane.splHighlightProxy = nil
+        return
+    end
+
+    installHighlightProxy(pane, baseMap, baseOwner)
+end
+
 local function wrapInventoryPane()
     if ISInventoryPane.refreshContainer ~= installedRefresh then
         local previousRefresh = ISInventoryPane.refreshContainer
         installedRefresh = function(pane)
             previousRefresh(pane)
-
-            if not pane.itemslist then
-                pane.splHighlightItems = nil
-                pane.splVisibleTrackedTypes = {}
-                return
-            end
-
-            local player = getSpecificPlayer(pane.player or 0)
-            if not player then
-                return
-            end
-
-            local baseMap = pane.itemsToHighlight
-            local baseOwner = pane.itemsToHighlightOwner
-            if baseMap == pane.splHighlightProxy then
-                baseMap = pane.splBaseHighlightMap
-                baseOwner = pane.splBaseHighlightOwner
-            end
-
-            local targets = SurvivalPlannerList.getTrackedTargetsForPlayer(player)
-            local ourHighlights, visibleTypes = collectHighlights(pane, targets)
-            updateFoundAlert(pane, visibleTypes)
-            pane.splHighlightItems = ourHighlights
-            pane.splBaseHighlightMap = baseMap
-            pane.splBaseHighlightOwner = baseOwner
-
-            if not ourHighlights then
-                pane.splHighlightProxy = nil
-                pane.itemsToHighlight = baseMap
-                pane.itemsToHighlightOwner = baseOwner
-                return
-            end
-
-            local ownerPane = pane
-            pane.splHighlightProxy = setmetatable({}, {
-                __index = function(_, inventoryItem)
-                    if ownerPane.splHighlightItems and ownerPane.splHighlightItems[inventoryItem] then
-                        ownerPane.splPendingHighlight = true
-                        return true
-                    end
-                    ownerPane.splPendingHighlight = nil
-                    if ownerPane.splBaseHighlightMap then
-                        return ownerPane.splBaseHighlightMap[inventoryItem]
-                    end
-                    return nil
-                end,
-            })
-            pane.itemsToHighlight = pane.splHighlightProxy
-            pane.itemsToHighlightOwner = baseOwner or pane.parent or pane
+            refreshPlannerHighlights(pane)
         end
         ISInventoryPane.refreshContainer = installedRefresh
     end
@@ -110,6 +131,9 @@ local function wrapInventoryPane()
     if ISInventoryPane.renderdetails ~= installedRender then
         local previousRender = ISInventoryPane.renderdetails
         installedRender = function(pane, doDragged)
+            if pane.splTrackingRevision ~= SurvivalPlannerList._trackingRevision then
+                refreshPlannerHighlights(pane)
+            end
             if doDragged or not pane.splHighlightItems then
                 previousRender(pane, doDragged)
                 return

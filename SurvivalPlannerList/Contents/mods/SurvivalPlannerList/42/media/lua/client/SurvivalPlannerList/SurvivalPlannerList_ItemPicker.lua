@@ -3,12 +3,15 @@ require "ISUI/ISButton"
 require "ISUI/ISTextEntryBox"
 require "ISUI/ISScrollingListBox"
 require "SurvivalPlannerList/SurvivalPlannerList_Core"
+require "SurvivalPlannerList/SurvivalPlannerList_StyledScrollBar"
 
 SPLItemPicker = ISPanel:derive("SPLItemPicker")
+SPLItemPickerList = ISScrollingListBox:derive("SPLItemPickerList")
 
 local PAD = 12
 local ROW_HEIGHT = 48
 local BUTTON_HEIGHT = 28
+local SCROLLBAR_GUTTER = 18
 
 local function uiText(key, fallback)
     local value = getText(key)
@@ -16,6 +19,30 @@ local function uiText(key, fallback)
         return fallback
     end
     return value
+end
+
+local function styleButton(button, primary)
+    button.textColor = {r = 0.92, g = 0.88, b = 0.76, a = 1}
+    if primary then
+        button.backgroundColor = {r = 0.16, g = 0.25, b = 0.105, a = 1}
+        button.backgroundColorMouseOver = {r = 0.29, g = 0.43, b = 0.16, a = 1}
+        button.borderColor = {r = 0.42, g = 0.57, b = 0.25, a = 1}
+    else
+        button.backgroundColor = {r = 0.18, g = 0.16, b = 0.12, a = 1}
+        button.backgroundColorMouseOver = {r = 0.30, g = 0.25, b = 0.16, a = 1}
+        button.borderColor = {r = 0.40, g = 0.36, b = 0.28, a = 1}
+    end
+end
+
+function SPLItemPickerList:addScrollBars()
+    self:removeScrollBars()
+    self.vscroll = SPLStyledScrollBar:new(self)
+    self.vscroll:initialise()
+    self:addChild(self.vscroll)
+end
+
+function SPLItemPickerList:new(x, y, width, height)
+    return ISScrollingListBox.new(self, x, y, width, height)
 end
 
 function SPLItemPicker:initialise()
@@ -35,7 +62,7 @@ function SPLItemPicker:createChildren()
 
     local listY = self.search:getBottom() + 8
     local listHeight = self.height - listY - BUTTON_HEIGHT - PAD * 2
-    self.list = ISScrollingListBox:new(PAD, listY, self.width - PAD * 2, listHeight)
+    self.list = SPLItemPickerList:new(PAD, listY, self.width - PAD * 2, listHeight)
     self.list:initialise()
     self.list:instantiate()
     self.list.itemheight = ROW_HEIGHT
@@ -58,7 +85,7 @@ function SPLItemPicker:createChildren()
     )
     self.chooseButton:initialise()
     self.chooseButton:instantiate()
-    self.chooseButton:enableAcceptColor()
+    styleButton(self.chooseButton, true)
     self:addChild(self.chooseButton)
 
     self.cancelButton = ISButton:new(
@@ -72,7 +99,7 @@ function SPLItemPicker:createChildren()
     )
     self.cancelButton:initialise()
     self.cancelButton:instantiate()
-    self.cancelButton:enableCancelColor()
+    styleButton(self.cancelButton, false)
     self:addChild(self.cancelButton)
 
     self:refreshCatalog(true)
@@ -121,21 +148,25 @@ end
 
 function SPLItemPicker:drawCatalogItem(y, row, alt)
     local height = row.height or ROW_HEIGHT
+    local contentWidth = self.width - SCROLLBAR_GUTTER
     if self.selected == row.index then
-        self:drawRect(1, y + 1, self.width - 2, height - 2, 0.82, 0.24, 0.31, 0.17)
+        self:drawRect(1, y + 1, contentWidth - 2, height - 2, 0.82, 0.24, 0.31, 0.17)
     elseif self.mouseoverselected == row.index and self:isMouseOver() then
-        self:drawRect(1, y + 1, self.width - 2, height - 2, 0.42, 0.22, 0.20, 0.14)
+        self:drawRect(1, y + 1, contentWidth - 2, height - 2, 0.42, 0.22, 0.20, 0.14)
     elseif alt then
-        self:drawRect(1, y + 1, self.width - 2, height - 2, 0.32, 0.13, 0.12, 0.10)
+        self:drawRect(1, y + 1, contentWidth - 2, height - 2, 0.32, 0.13, 0.12, 0.10)
     end
 
     local entry = row.item
     if entry.texture then
         self:drawTextureScaledAspect(entry.texture, 8, y + 5, 38, 38, 1, 1, 1, 1)
     end
-    self:drawText(entry.name or entry.fullType, 54, y + 7, 0.93, 0.90, 0.78, 1, UIFont.Small)
-    self:drawText(entry.fullType or "", 54, y + 27, 0.57, 0.55, 0.48, 1, UIFont.Small)
-    self:drawRectBorder(0, y, self.width, height, 0.55, 0.35, 0.32, 0.27)
+    local textWidth = contentWidth - 62
+    local itemName = getTextManager():WrapText(UIFont.Small, entry.name or entry.fullType, textWidth, 1, "...")
+    local fullType = getTextManager():WrapText(UIFont.Small, entry.fullType or "", textWidth, 1, "...")
+    self:drawText(itemName, 54, y + 7, 0.93, 0.90, 0.78, 1, UIFont.Small)
+    self:drawText(fullType, 54, y + 27, 0.57, 0.55, 0.48, 1, UIFont.Small)
+    self:drawRectBorder(0, y, contentWidth, height, 0.55, 0.35, 0.32, 0.27)
     return y + height
 end
 

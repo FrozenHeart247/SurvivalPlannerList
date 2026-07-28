@@ -1,13 +1,15 @@
 require "ISUI/ISPanel"
 require "ISUI/ISScrollingListBox"
 require "ISUI/ISButton"
-require "ISUI/ISModalDialog"
-require "ISUI/ISTextBox"
 require "SurvivalPlannerList/SurvivalPlannerList_Core"
+require "SurvivalPlannerList/SurvivalPlannerList_StyledScrollBar"
 require "SurvivalPlannerList/SurvivalPlannerList_ItemPicker"
 require "SurvivalPlannerList/SurvivalPlannerList_TaskEditor"
+require "SurvivalPlannerList/SurvivalPlannerList_SubtaskEditor"
+require "SurvivalPlannerList/SurvivalPlannerList_Automation"
 
 SPLPlannerList = ISScrollingListBox:derive("SPLPlannerList")
+SPLConfirmDialog = ISPanel:derive("SPLConfirmDialog")
 SPLMainPanel = ISPanel:derive("SPLMainPanel")
 SPLMainPanel.instances = SPLMainPanel.instances or {}
 
@@ -17,11 +19,18 @@ local STATUS_HEIGHT = 36
 local TAB_HEIGHT = 34
 local CARD_GAP = 10
 local CARD_SIDE_PAD = 7
+local TASK_BOTTOM_PAD = 8
 local TASK_MIN_HEADER_HEIGHT = 64
-local SUBTASK_HEIGHT = 26
+local GOAL_HEIGHT = 22
+local SUBTASK_BASE_HEIGHT = 28
+local SUBTASK_GOAL_HEIGHT = 20
 local TRACKING_HEIGHT = 68
 local CHECKBOX_SIZE = 14
+local SCROLLBAR_GUTTER = 18
+local DRAG_THRESHOLD = 5
 local FONT_HEIGHT_SMALL = getTextManager():getFontHeight(UIFont.Small)
+local DIALOG_BUTTON_WIDTH = 132
+local DIALOG_BUTTON_HEIGHT = 30
 
 local TAB_ORDER = {
     SurvivalPlannerList.STATUS_ACTIVE,
@@ -50,20 +59,45 @@ local function taskStatusText(status)
 end
 
 local function calculateTaskLayout(task, listWidth)
-    local cardWidth = listWidth - CARD_SIDE_PAD * 2
-    local statusLabel = taskStatusText(task.status)
-    local statusWidth = getTextManager():MeasureStringX(UIFont.Small, statusLabel) + 18
-    local titleMaxWidth = math.max(120, cardWidth - 72 - statusWidth - 24)
+    local cardWidth = listWidth - SCROLLBAR_GUTTER - CARD_SIDE_PAD * 2
+    local titleMaxWidth = math.max(120, cardWidth - 72 - 20)
     local titleText = getTextManager():WrapText(UIFont.Medium, task.title or "", titleMaxWidth)
     local titleHeight = getTextManager():MeasureStringY(UIFont.Medium, titleText)
     local headerHeight = 8 + titleHeight + 10
 
-    if task.targetType then
-        headerHeight = headerHeight + 22
-    end
+    headerHeight = headerHeight + #(task.goals or {}) * GOAL_HEIGHT
     headerHeight = math.max(TASK_MIN_HEADER_HEIGHT, headerHeight)
 
     return titleText, titleHeight, headerHeight
+end
+
+local function calculateSubtaskHeight(subtask)
+    return SUBTASK_BASE_HEIGHT + #(subtask.goals or {}) * SUBTASK_GOAL_HEIGHT
+end
+
+local function drawGoalLine(list, goal, x, y, maxWidth, iconSize, counts, muted, showProgress)
+    local current = tonumber(counts and counts[goal.fullType]) or 0
+    local required = tonumber(goal.quantity) or 1
+    local complete = current >= required
+    local texture = SurvivalPlannerList.getItemTexture(goal.fullType)
+    if texture then
+        list:drawTextureScaledAspect(texture, x, y, iconSize, iconSize, 1, 1, 1, 1)
+    end
+
+    local progressText = showProgress == false
+        and "x" .. tostring(required)
+        or tostring(current) .. "/" .. tostring(required)
+    local progressWidth = getTextManager():MeasureStringX(UIFont.Small, progressText)
+    local nameWidth = math.max(40, maxWidth - iconSize - 9 - progressWidth - 12)
+    local goalName = getTextManager():WrapText(UIFont.Small, goal.name or goal.fullType, nameWidth, 1, "...")
+    local r, g, b = 0.73, 0.70, 0.55
+    if complete then
+        r, g, b = 0.52, 0.66, 0.36
+    elseif muted then
+        r, g, b = 0.55, 0.53, 0.46
+    end
+    list:drawText(goalName, x + iconSize + 7, y, r, g, b, 1, UIFont.Small)
+    list:drawTextRight(progressText, x + maxWidth, y, r, g, b, 1, UIFont.Small)
 end
 
 function SPLPlannerList:doDrawItem(y, row, alt)
@@ -71,7 +105,7 @@ function SPLPlannerList:doDrawItem(y, row, alt)
     local data = row.item
     local cardX = CARD_SIDE_PAD
     local cardY = y + CARD_GAP / 2
-    local cardWidth = self.width - CARD_SIDE_PAD * 2
+    local cardWidth = self.width - SCROLLBAR_GUTTER - CARD_SIDE_PAD * 2
     local cardHeight = height - CARD_GAP
     local selected = self.selected == row.index
     local hovered = self.mouseoverselected == row.index and self:isMouseOver()
@@ -117,33 +151,22 @@ function SPLPlannerList:doDrawItem(y, row, alt)
         local titleHeight = row.titleHeight or getTextManager():MeasureStringY(UIFont.Medium, titleText)
         local headerHeight = row.headerHeight or TASK_MIN_HEADER_HEIGHT
         self:drawText(titleText, textX, cardY + 8, 0.95, 0.91, 0.78, 1, UIFont.Medium)
-        local statusLabel = taskStatusText(task.status)
-        local statusWidth = getTextManager():MeasureStringX(UIFont.Small, statusLabel) + 18
-        local statusX = cardX + cardWidth - statusWidth - 10
-        self:drawRect(statusX, cardY + 7, statusWidth, 22, 0.96, 0.105, 0.11, 0.085)
-        self:drawRectBorder(statusX, cardY + 7, statusWidth, 22, 0.82, accentR, accentG, accentB)
-        self:drawTextCentre(statusLabel, statusX + statusWidth / 2, cardY + 10, accentR, accentG, accentB, 1, UIFont.Small)
 
-        if task.targetType then
-            local targetY = cardY + 8 + titleHeight + 5
-            local targetTexture = SurvivalPlannerList.getItemTexture(task.targetType)
-            if targetTexture then
-                self:drawTextureScaledAspect(targetTexture, textX, targetY, 18, 18, 1, 1, 1, 1)
-            end
-            local targetName = task.targetName or SurvivalPlannerList.getItemName(task.targetType)
-            local targetText = uiText("SPL_Label_Tracking", "Tracking") .. ": " .. targetName
-            local targetMaxWidth = cardX + cardWidth - 16 - (textX + 25)
-            targetText = getTextManager():WrapText(UIFont.Small, targetText, targetMaxWidth, 1, "...")
-            self:drawText(
-                targetText,
-                textX + 25,
-                targetY,
-                0.73,
-                0.70,
-                0.55,
-                1,
-                UIFont.Small
+        local goalY = cardY + 8 + titleHeight + 5
+        local goalWidth = cardX + cardWidth - 16 - textX
+        for _, goal in ipairs(task.goals or {}) do
+            drawGoalLine(
+                self,
+                goal,
+                textX,
+                goalY,
+                goalWidth,
+                18,
+                self.ownerPanel.inventoryCounts,
+                task.status ~= SurvivalPlannerList.STATUS_ACTIVE,
+                task.status ~= SurvivalPlannerList.STATUS_DONE
             )
+            goalY = goalY + GOAL_HEIGHT
         end
 
         local subY = cardY + headerHeight
@@ -151,19 +174,46 @@ function SPLPlannerList:doDrawItem(y, row, alt)
             self:drawRect(cardX + 16, subY - 5, cardWidth - 30, 1, 0.62, 0.29, 0.28, 0.23)
         end
         for _, subtask in ipairs(task.subtasks or {}) do
+            local subtaskHeight = calculateSubtaskHeight(subtask)
             local color = subtask.done
                 and {r = 0.47, g = 0.56, b = 0.38}
                 or {r = 0.82, g = 0.79, b = 0.68}
             local checkboxX = cardX + 20
-            local textY = subY + math.floor((SUBTASK_HEIGHT - FONT_HEIGHT_SMALL) / 2)
-            local checkboxY = subY + math.floor((SUBTASK_HEIGHT - CHECKBOX_SIZE) / 2)
+            local textY = subY + math.floor((SUBTASK_BASE_HEIGHT - FONT_HEIGHT_SMALL) / 2)
+            local checkboxY = subY + math.floor((SUBTASK_BASE_HEIGHT - CHECKBOX_SIZE) / 2)
             self:drawRectBorder(checkboxX, checkboxY, CHECKBOX_SIZE, CHECKBOX_SIZE, 1, color.r, color.g, color.b)
             if subtask.done then
                 self:drawRect(checkboxX + 3, checkboxY + 3, 8, 8, 1, color.r, color.g, color.b)
             end
-            self:drawText(subtask.title, checkboxX + 26, textY, color.r, color.g, color.b, 1, UIFont.Small)
+            local subtaskTitleWidth = cardX + cardWidth - 44 - (checkboxX + 26)
+            local subtaskTitle = getTextManager():WrapText(
+                UIFont.Small,
+                subtask.title,
+                subtaskTitleWidth,
+                1,
+                "..."
+            )
+            self:drawText(subtaskTitle, checkboxX + 26, textY, color.r, color.g, color.b, 1, UIFont.Small)
             self:drawTextRight("X", cardX + cardWidth - 18, textY, 0.72, 0.40, 0.35, 1, UIFont.Small)
-            subY = subY + SUBTASK_HEIGHT
+
+            local subGoalY = subY + SUBTASK_BASE_HEIGHT
+            local subGoalX = checkboxX + 26
+            local subGoalWidth = cardX + cardWidth - 28 - subGoalX
+            for _, goal in ipairs(subtask.goals or {}) do
+                drawGoalLine(
+                    self,
+                    goal,
+                    subGoalX,
+                    subGoalY,
+                    subGoalWidth,
+                    16,
+                    self.ownerPanel.inventoryCounts,
+                    subtask.done or task.status ~= SurvivalPlannerList.STATUS_ACTIVE,
+                    task.status ~= SurvivalPlannerList.STATUS_DONE
+                )
+                subGoalY = subGoalY + SUBTASK_GOAL_HEIGHT
+            end
+            subY = subY + subtaskHeight
         end
     end
 
@@ -171,13 +221,128 @@ function SPLPlannerList:doDrawItem(y, row, alt)
     return y + height
 end
 
-function SPLPlannerList:onMouseUp(x, y)
-    ISScrollingListBox.onMouseUp(self, x, y)
-    if self:isMouseOverScrollBar() then
+function SPLPlannerList:addScrollBars()
+    self:removeScrollBars()
+    self.vscroll = SPLStyledScrollBar:new(self)
+    self.vscroll:initialise()
+    self:addChild(self.vscroll)
+end
+
+function SPLPlannerList:getDropIndex(contentY)
+    local y = 0
+    for index, row in ipairs(self.items) do
+        local height = row.height or self.itemheight
+        if contentY < y + height / 2 then
+            return index
+        end
+        y = y + height
+    end
+    return #self.items + 1
+end
+
+function SPLPlannerList:clearTaskDrag()
+    self.dragCandidate = nil
+    self.draggingTask = false
+    self.dragRow = nil
+    self.dropIndex = nil
+    if self:getIsCaptured() then
+        self:setCapture(false)
+    end
+end
+
+function SPLPlannerList:onMouseDown(x, y)
+    if self:isMouseOverScrollBar() or x >= self.width - SCROLLBAR_GUTTER then
         return
     end
 
-    local contentY = y - self:getYScroll()
+    local contentY = self:getMouseY()
+    local rowIndex = self:rowAt(x, contentY)
+    local row = self.items[rowIndex]
+    if not row then
+        return
+    end
+
+    getSoundManager():playUISound("UISelectListItem")
+    self.selected = rowIndex
+    self:invokeOnMouseDownFunction()
+
+    if not self.ownerPanel:isTaskReorderEnabled()
+        or not row.item
+        or row.item.kind ~= "task" then
+        return
+    end
+
+    local localY = contentY - self:topOfItem(rowIndex) - CARD_GAP / 2
+    local headerHeight = row.headerHeight or TASK_MIN_HEADER_HEIGHT
+    local cardRight = self.width - SCROLLBAR_GUTTER - CARD_SIDE_PAD
+    if localY < 0
+        or localY >= headerHeight
+        or x < CARD_SIDE_PAD + 66
+        or x > cardRight then
+        return
+    end
+
+    self.dragCandidate = row
+    self.dragRow = row
+    self.dragStartScreenX = getMouseX()
+    self.dragStartScreenY = getMouseY()
+    self.dropIndex = rowIndex
+    self:setCapture(true)
+end
+
+function SPLPlannerList:updateTaskDrag()
+    if not self.dragCandidate then
+        return
+    end
+
+    if not self.draggingTask then
+        local dx = math.abs(getMouseX() - self.dragStartScreenX)
+        local dy = math.abs(getMouseY() - self.dragStartScreenY)
+        if dx < DRAG_THRESHOLD and dy < DRAG_THRESHOLD then
+            return
+        end
+        self.draggingTask = true
+    end
+
+    local viewportY = self:getMouseY() + self:getYScroll()
+    local currentScroll = self:getYScroll()
+    if viewportY < 28 then
+        self:setYScroll(currentScroll + 12)
+    elseif viewportY > self.height - 28 then
+        self:setYScroll(currentScroll - 12)
+    end
+    self.dropIndex = self:getDropIndex(self:getMouseY())
+end
+
+function SPLPlannerList:onMouseMove(dx, dy)
+    ISScrollingListBox.onMouseMove(self, dx, dy)
+    self:updateTaskDrag()
+end
+
+function SPLPlannerList:onMouseMoveOutside(dx, dy)
+    self.mouseoverselected = -1
+    self:updateTaskDrag()
+end
+
+function SPLPlannerList:onMouseUp(x, y)
+    ISScrollingListBox.onMouseUp(self, x, y)
+    if self:isMouseOverScrollBar() then
+        self:clearTaskDrag()
+        return
+    end
+
+    if self.draggingTask and self.dragRow and self.dropIndex then
+        local task = self.dragRow.item and self.dragRow.item.task or nil
+        local dropIndex = self.dropIndex
+        self:clearTaskDrag()
+        if task then
+            self.ownerPanel:onTaskReordered(task, dropIndex)
+        end
+        return
+    end
+
+    self:clearTaskDrag()
+    local contentY = self:getMouseY()
     local rowIndex = self:rowAt(x, contentY)
     local row = self.items[rowIndex]
     if not row or not row.item or row.item.kind ~= "task" then
@@ -193,24 +358,258 @@ function SPLPlannerList:onMouseUp(x, y)
     end
 
     if localY >= headerHeight then
-        local subIndex = math.floor((localY - headerHeight) / SUBTASK_HEIGHT) + 1
-        local subtask = task.subtasks and task.subtasks[subIndex] or nil
-        if not subtask then
-            return
-        end
-        if x <= CARD_SIDE_PAD + 48 then
-            self.ownerPanel:onSubtaskToggle(task, subtask)
-        elseif x >= self.width - CARD_SIDE_PAD - 44 then
-            self.ownerPanel:onSubtaskDelete(task, subtask)
+        local subOffset = localY - headerHeight
+        for _, subtask in ipairs(task.subtasks or {}) do
+            local subtaskHeight = calculateSubtaskHeight(subtask)
+            if subOffset < subtaskHeight then
+                local inMainLine = subOffset < SUBTASK_BASE_HEIGHT
+                if inMainLine and x <= CARD_SIDE_PAD + 48 then
+                    self.ownerPanel:onSubtaskToggle(task, subtask)
+                elseif inMainLine and x >= self.width - SCROLLBAR_GUTTER - CARD_SIDE_PAD - 44 then
+                    self.ownerPanel:onSubtaskDelete(task, subtask)
+                else
+                    self.ownerPanel:onSubtaskEdit(task, subtask)
+                end
+                return
+            end
+            subOffset = subOffset - subtaskHeight
         end
     end
+end
+
+function SPLPlannerList:onMouseUpOutside(x, y)
+    ISScrollingListBox.onMouseUpOutside(self, x, y)
+    self:clearTaskDrag()
+end
+
+function SPLPlannerList:render()
+    ISScrollingListBox.render(self)
+    if not self.draggingTask or not self.dragRow or not self.dropIndex then
+        return
+    end
+
+    local insertY
+    if self.dropIndex > #self.items then
+        insertY = 0
+        for _, row in ipairs(self.items) do
+            insertY = insertY + (row.height or self.itemheight)
+        end
+    else
+        insertY = self:topOfItem(self.dropIndex)
+    end
+
+    local lineX = CARD_SIDE_PAD + 5
+    local lineWidth = self.width - SCROLLBAR_GUTTER - CARD_SIDE_PAD * 2 - 10
+    self:drawRect(lineX, insertY - 2, lineWidth, 4, 1, 0.67, 0.73, 0.39)
+    self:drawRect(lineX - 3, insertY - 4, 4, 8, 1, 0.67, 0.73, 0.39)
+    self:drawRect(lineX + lineWidth - 1, insertY - 4, 4, 8, 1, 0.67, 0.73, 0.39)
+
+    local ghostHeight = 44
+    local ghostY = self:getMouseY() - ghostHeight / 2
+    local ghostWidth = self.width - SCROLLBAR_GUTTER - CARD_SIDE_PAD * 2
+    local task = self.dragRow.item.task
+    local ghostTitle = getTextManager():WrapText(UIFont.Small, task.title or "", ghostWidth - 28, 1, "...")
+    self:drawRect(CARD_SIDE_PAD, ghostY, ghostWidth, ghostHeight, 0.82, 0.16, 0.18, 0.11)
+    self:drawRect(CARD_SIDE_PAD, ghostY, 4, ghostHeight, 1, 0.58, 0.68, 0.34)
+    self:drawRectBorder(CARD_SIDE_PAD, ghostY, ghostWidth, ghostHeight, 1, 0.58, 0.68, 0.34)
+    self:drawText(ghostTitle, CARD_SIDE_PAD + 16, ghostY + 12, 0.94, 0.91, 0.78, 1, UIFont.Small)
 end
 
 function SPLPlannerList:new(x, y, width, height, ownerPanel)
     local o = ISScrollingListBox.new(self, x, y, width, height)
     o.ownerPanel = ownerPanel
     o.itemheight = TASK_MIN_HEADER_HEIGHT + CARD_GAP
+    o.dragCandidate = nil
+    o.draggingTask = false
+    o.dragRow = nil
+    o.dropIndex = nil
     return o
+end
+
+function SPLConfirmDialog:initialise()
+    ISPanel.initialise(self)
+end
+
+function SPLConfirmDialog:createChildren()
+    ISPanel.createChildren(self)
+
+    local buttonY = self.cardY + self.cardHeight - 48
+    if self.yesno then
+        local gap = 12
+        local totalWidth = DIALOG_BUTTON_WIDTH * 2 + gap
+        local startX = self.cardX + (self.cardWidth - totalWidth) / 2
+
+        self.cancelButton = ISButton:new(
+            startX,
+            buttonY,
+            DIALOG_BUTTON_WIDTH,
+            DIALOG_BUTTON_HEIGHT,
+            uiText("SPL_Button_Cancel", "Cancel"),
+            self,
+            SPLConfirmDialog.onClick
+        )
+        self.cancelButton.internal = "NO"
+        self.cancelButton:initialise()
+        self.cancelButton:instantiate()
+        self.cancelButton.backgroundColor = {r = 0.16, g = 0.145, b = 0.115, a = 1}
+        self.cancelButton.backgroundColorMouseOver = {r = 0.28, g = 0.24, b = 0.17, a = 1}
+        self.cancelButton.borderColor = {r = 0.40, g = 0.36, b = 0.28, a = 1}
+        self.cancelButton.textColor = {r = 0.86, g = 0.82, b = 0.71, a = 1}
+        self:addChild(self.cancelButton)
+
+        self.confirmButton = ISButton:new(
+            startX + DIALOG_BUTTON_WIDTH + gap,
+            buttonY,
+            DIALOG_BUTTON_WIDTH,
+            DIALOG_BUTTON_HEIGHT,
+            uiText("SPL_Button_Confirm", "Confirm"),
+            self,
+            SPLConfirmDialog.onClick
+        )
+        self.confirmButton.internal = "YES"
+        self.confirmButton:initialise()
+        self.confirmButton:instantiate()
+        if self.danger then
+            self.confirmButton.backgroundColor = {r = 0.25, g = 0.075, b = 0.055, a = 1}
+            self.confirmButton.backgroundColorMouseOver = {r = 0.55, g = 0.12, b = 0.075, a = 1}
+            self.confirmButton.borderColor = {r = 0.62, g = 0.20, b = 0.13, a = 1}
+        else
+            self.confirmButton.backgroundColor = {r = 0.20, g = 0.24, b = 0.13, a = 1}
+            self.confirmButton.backgroundColorMouseOver = {r = 0.34, g = 0.42, b = 0.20, a = 1}
+            self.confirmButton.borderColor = {r = 0.46, g = 0.56, b = 0.28, a = 1}
+        end
+        self.confirmButton.textColor = {r = 0.94, g = 0.90, b = 0.78, a = 1}
+        self:addChild(self.confirmButton)
+    else
+        self.okButton = ISButton:new(
+            self.cardX + (self.cardWidth - DIALOG_BUTTON_WIDTH) / 2,
+            buttonY,
+            DIALOG_BUTTON_WIDTH,
+            DIALOG_BUTTON_HEIGHT,
+            uiText("UI_Ok", "OK"),
+            self,
+            SPLConfirmDialog.onClick
+        )
+        self.okButton.internal = "OK"
+        self.okButton:initialise()
+        self.okButton:instantiate()
+        self.okButton.backgroundColor = {r = 0.20, g = 0.24, b = 0.13, a = 1}
+        self.okButton.backgroundColorMouseOver = {r = 0.34, g = 0.42, b = 0.20, a = 1}
+        self.okButton.borderColor = {r = 0.46, g = 0.56, b = 0.28, a = 1}
+        self.okButton.textColor = {r = 0.94, g = 0.90, b = 0.78, a = 1}
+        self:addChild(self.okButton)
+    end
+end
+
+function SPLConfirmDialog:onClick(button)
+    local target = self.target
+    local callback = self.callback
+    self:setVisible(false)
+    self:removeFromUIManager()
+    if callback then
+        callback(target, button)
+    end
+end
+
+function SPLConfirmDialog:onMouseDown()
+    return true
+end
+
+function SPLConfirmDialog:prerender()
+    self:drawRect(0, 0, self.width, self.height, 0.58, 0.015, 0.014, 0.012)
+    self:drawRect(
+        self.cardX,
+        self.cardY,
+        self.cardWidth,
+        self.cardHeight,
+        0.99,
+        0.105,
+        0.098,
+        0.078
+    )
+
+    local accentR, accentG, accentB = 0.50, 0.58, 0.31
+    if self.danger then
+        accentR, accentG, accentB = 0.68, 0.20, 0.13
+    end
+    self:drawRect(self.cardX, self.cardY, 4, self.cardHeight, 1, accentR, accentG, accentB)
+    self:drawRectBorder(
+        self.cardX,
+        self.cardY,
+        self.cardWidth,
+        self.cardHeight,
+        1,
+        0.43,
+        0.39,
+        0.30
+    )
+
+    self:drawText(
+        self.titleText,
+        self.cardX + 24,
+        self.cardY + 18,
+        accentR,
+        accentG,
+        accentB,
+        1,
+        UIFont.Medium
+    )
+    self:drawRect(
+        self.cardX + 24,
+        self.cardY + 48,
+        self.cardWidth - 48,
+        1,
+        0.72,
+        0.32,
+        0.29,
+        0.22
+    )
+    self:drawText(
+        self.wrappedText,
+        self.cardX + 24,
+        self.cardY + 64,
+        0.89,
+        0.85,
+        0.73,
+        1,
+        UIFont.Small
+    )
+end
+
+function SPLConfirmDialog:new(playerNum, message, yesno, target, callback, danger)
+    local screenWidth = getCore():getScreenWidth()
+    local screenHeight = getCore():getScreenHeight()
+    local cardWidth = math.min(520, screenWidth - 40)
+    local textWidth = cardWidth - 48
+    local wrappedText = getTextManager():WrapText(UIFont.Small, message or "", textWidth, 8, "...")
+    local textHeight = getTextManager():MeasureStringY(UIFont.Small, wrappedText)
+    local cardHeight = math.max(174, 64 + textHeight + 64)
+    local o = ISPanel.new(self, 0, 0, screenWidth, screenHeight)
+    o.playerNum = playerNum or 0
+    o.cardWidth = cardWidth
+    o.cardHeight = cardHeight
+    o.cardX = (screenWidth - cardWidth) / 2
+    o.cardY = (screenHeight - cardHeight) / 2
+    o.wrappedText = wrappedText
+    o.titleText = yesno
+        and uiText("SPL_Title_Confirmation", "Confirm action")
+        or uiText("SPL_Title_Notice", "Notice")
+    o.yesno = yesno == true
+    o.target = target
+    o.callback = callback
+    o.danger = danger == true
+    o.background = false
+    o.moveWithMouse = false
+    o:setWantMouseEvents(true)
+    return o
+end
+
+function SPLConfirmDialog.open(playerNum, message, yesno, target, callback, danger)
+    local dialog = SPLConfirmDialog:new(playerNum, message, yesno, target, callback, danger)
+    dialog:initialise()
+    dialog:addToUIManager()
+    dialog:bringToTop()
+    return dialog
 end
 
 function SPLMainPanel:initialise()
@@ -276,8 +675,11 @@ function SPLMainPanel:createChildren()
     self.subtaskButton = self:createFooterButton(PAD, row2Y, quarterWidth, uiText("SPL_Button_AddSubtask", "Add subtask"), SPLMainPanel.onAddSubtask)
     self.secondaryButton = self:createFooterButton(PAD * 2 + quarterWidth, row2Y, quarterWidth, uiText("SPL_Button_Plan", "Plan"), SPLMainPanel.onSecondaryAction)
     self.primaryButton = self:createFooterButton(PAD * 3 + quarterWidth * 2, row2Y, quarterWidth, uiText("SPL_Button_Complete", "Complete"), SPLMainPanel.onPrimaryAction)
-    self.deleteButton = self:createFooterButton(PAD * 4 + quarterWidth * 3, row2Y, self.width - PAD * 5 - quarterWidth * 3, uiText("UI_Delete", "Delete"), SPLMainPanel.onDelete)
-    self.deleteButton:enableCancelColor()
+    self.deleteButton = self:createFooterButton(PAD * 4 + quarterWidth * 3, row2Y, self.width - PAD * 5 - quarterWidth * 3, uiText("SPL_Button_DeleteTask", "Delete task"), SPLMainPanel.onDelete)
+    self.deleteButton.backgroundColor = {r = 0.22, g = 0.075, b = 0.055, a = 1}
+    self.deleteButton.backgroundColorMouseOver = {r = 0.50, g = 0.12, b = 0.075, a = 1}
+    self.deleteButton.borderColor = {r = 0.57, g = 0.18, b = 0.12, a = 1}
+    self.deleteButton.textColor = {r = 0.92, g = 0.83, b = 0.72, a = 1}
 
     self:refreshList()
 end
@@ -312,6 +714,7 @@ function SPLMainPanel:refreshList(selectId)
         self:close()
         return
     end
+    self.inventoryCounts = SurvivalPlannerList.Automation.getCounts(self.playerNum)
 
     local previous = self:getSelectedValue()
     selectId = selectId or (previous and (previous.id or previous.fullType))
@@ -337,7 +740,10 @@ function SPLMainPanel:refreshList(selectId)
             if task.status == self.currentTab then
                 local row = self.list:addItem(task.title, {kind = "task", task = task, id = task.id})
                 row.titleText, row.titleHeight, row.headerHeight = calculateTaskLayout(task, self.list.width)
-                row.height = row.headerHeight + #(task.subtasks or {}) * SUBTASK_HEIGHT + CARD_GAP
+                row.height = row.headerHeight + CARD_GAP + TASK_BOTTOM_PAD
+                for _, subtask in ipairs(task.subtasks or {}) do
+                    row.height = row.height + calculateSubtaskHeight(subtask)
+                end
                 if tonumber(selectId) == tonumber(task.id) then
                     selectedIndex = #self.list.items
                 end
@@ -448,6 +854,23 @@ function SPLMainPanel:onSelectionChanged()
     self:updateButtons()
 end
 
+function SPLMainPanel:isTaskReorderEnabled()
+    return self.editAccess == true and (
+        self.currentTab == SurvivalPlannerList.STATUS_ACTIVE
+        or self.currentTab == SurvivalPlannerList.STATUS_PLANNED
+    )
+end
+
+function SPLMainPanel:onTaskReordered(task, dropIndex)
+    if not task or not self:isTaskReorderEnabled() or not self:requireEditAccess() then
+        return
+    end
+    if SurvivalPlannerList.reorderTask(self.planner, task.id, dropIndex) then
+        getSoundManager():playUISound("UIActivateButton")
+        self:refreshList(task.id)
+    end
+end
+
 function SPLMainPanel:requireEditAccess()
     local player = getSpecificPlayer(self.playerNum)
     local access, hasWritingTool, hasEraser = SurvivalPlannerList.getEditAccess(player)
@@ -471,32 +894,44 @@ function SPLMainPanel:requireEditAccess()
     return false
 end
 
-function SPLMainPanel:showMessage(message)
-    local modal = ISModalDialog:new(0, 0, 440, 140, message, false, nil, nil, self.playerNum)
-    modal:initialise()
-    modal:addToUIManager()
-    modal:bringToTop()
+function SPLMainPanel:dismissDialog()
+    if self.dialog and self.dialog:getIsVisible() then
+        self.dialog:setVisible(false)
+        self.dialog:removeFromUIManager()
+    end
+    self.dialog = nil
 end
 
-function SPLMainPanel:showConfirm(message, action, arg1, arg2)
+function SPLMainPanel:showMessage(message)
+    self:dismissDialog()
+    self.dialog = SPLConfirmDialog.open(
+        self.playerNum,
+        message,
+        false,
+        self,
+        SPLMainPanel.onMessageClosed
+    )
+end
+
+function SPLMainPanel:onMessageClosed()
+    self.dialog = nil
+end
+
+function SPLMainPanel:showConfirm(message, action, arg1, arg2, danger)
+    self:dismissDialog()
     self.pendingConfirmation = {action = action, arg1 = arg1, arg2 = arg2}
-    local modal = ISModalDialog:new(
-        0,
-        0,
-        480,
-        150,
+    self.dialog = SPLConfirmDialog.open(
+        self.playerNum,
         message,
         true,
         self,
         SPLMainPanel.onConfirmation,
-        self.playerNum
+        danger
     )
-    modal:initialise()
-    modal:addToUIManager()
-    modal:bringToTop()
 end
 
 function SPLMainPanel:onConfirmation(button)
+    self.dialog = nil
     local pending = self.pendingConfirmation
     self.pendingConfirmation = nil
     if button.internal == "YES" and pending and pending.action then
@@ -511,7 +946,10 @@ function SPLMainPanel:onAdd()
     if self.currentTab == SurvivalPlannerList.STATUS_DONE then
         self:showConfirm(
             uiText("SPL_Confirm_ClearDone", "Delete every completed task?"),
-            SPLMainPanel.doClearDone
+            SPLMainPanel.doClearDone,
+            nil,
+            nil,
+            true
         )
         return
     end
@@ -588,31 +1026,45 @@ function SPLMainPanel:onAddSubtask()
     if not task or not self:requireEditAccess() then
         return
     end
-    local dialog = ISTextBox:new(
-        0,
-        0,
-        440,
-        180,
-        uiText("SPL_Title_NewSubtask", "New subtask"),
-        "",
-        self,
-        SPLMainPanel.onSubtaskText,
+    SPLSubtaskEditor.open(
         self.playerNum,
-        task.id
+        task.id,
+        nil,
+        self,
+        SPLMainPanel.onSubtaskEditorSave
     )
-    dialog.noEmpty = true
-    dialog:initialise()
-    dialog:addToUIManager()
-    dialog:bringToTop()
 end
 
-function SPLMainPanel:onSubtaskText(button, taskId)
-    if button.internal ~= "OK" or not self:requireEditAccess() then
+function SPLMainPanel:onSubtaskEdit(task, subtask)
+    if not task or not subtask or not self:requireEditAccess() then
         return
     end
-    local title = SurvivalPlannerList.trim(button.parent.entry:getText())
-    if SurvivalPlannerList.addSubtask(self.planner, taskId, title) then
-        self:refreshList(taskId)
+    SPLSubtaskEditor.open(
+        self.playerNum,
+        task.id,
+        subtask,
+        self,
+        SPLMainPanel.onSubtaskEditorSave
+    )
+end
+
+function SPLMainPanel:onSubtaskEditorSave(values)
+    if not self:requireEditAccess() then
+        return
+    end
+    local changed
+    if values.subtaskId then
+        changed = SurvivalPlannerList.updateSubtask(
+            self.planner,
+            values.taskId,
+            values.subtaskId,
+            values
+        )
+    else
+        changed = SurvivalPlannerList.addSubtask(self.planner, values.taskId, values)
+    end
+    if changed then
+        self:refreshList(values.taskId)
     end
 end
 
@@ -633,7 +1085,8 @@ function SPLMainPanel:onSubtaskDelete(task, subtask)
         uiText("SPL_Confirm_DeleteSubtask", "Delete this subtask?") .. "\n" .. subtask.title,
         SPLMainPanel.doDeleteSubtask,
         task.id,
-        subtask.id
+        subtask.id,
+        true
     )
 end
 
@@ -689,7 +1142,9 @@ function SPLMainPanel:onDelete()
     self:showConfirm(
         uiText("SPL_Confirm_DeleteTask", "Permanently delete this task?") .. "\n" .. task.title,
         SPLMainPanel.doDeleteTask,
-        task.id
+        task.id,
+        nil,
+        true
     )
 end
 
@@ -724,7 +1179,9 @@ function SPLMainPanel:onRemoveTracking()
     self:showConfirm(
         uiText("SPL_Confirm_RemoveTracking", "Stop tracking this item?") .. "\n" .. value.name,
         SPLMainPanel.doRemoveTracking,
-        value.fullType
+        value.fullType,
+        nil,
+        true
     )
 end
 
@@ -747,6 +1204,7 @@ end
 
 function SPLMainPanel:prerender()
     self:updateEditAccess()
+    self.inventoryCounts = SurvivalPlannerList.Automation.getCounts(self.playerNum)
     ISPanel.prerender(self)
 
     self:drawRect(1, 1, self.width - 2, STATUS_HEIGHT - 1, 1, 0.14, 0.13, 0.105)
@@ -767,6 +1225,8 @@ function SPLMainPanel:render()
 end
 
 function SPLMainPanel:close()
+    self:dismissDialog()
+    self.pendingConfirmation = nil
     SPLMainPanel.instances[self.playerNum + 1] = nil
     self:setVisible(false)
     self:removeFromUIManager()

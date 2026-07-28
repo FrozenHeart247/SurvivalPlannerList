@@ -2,7 +2,7 @@ SurvivalPlannerList = SurvivalPlannerList or {}
 
 SurvivalPlannerList.ID = "SurvivalPlannerList"
 SurvivalPlannerList.ITEM_TYPE = "SurvivalPlannerList.SurvivalPlanner"
-SurvivalPlannerList.DATA_VERSION = 1
+SurvivalPlannerList.DATA_VERSION = 2
 SurvivalPlannerList.DEFAULT_ICON = "Base.Notebook"
 SurvivalPlannerList.STATUS_ACTIVE = "active"
 SurvivalPlannerList.STATUS_PLANNED = "planned"
@@ -100,6 +100,10 @@ function SurvivalPlannerList.trim(value)
     return trim(value)
 end
 
+function SurvivalPlannerList.now()
+    return safeNow()
+end
+
 function SurvivalPlannerList.isPlanner(item)
     return itemFullType(item) == SurvivalPlannerList.ITEM_TYPE
 end
@@ -134,31 +138,40 @@ function SurvivalPlannerList.findPlayerItem(player, predicate)
     end)
 end
 
+function SurvivalPlannerList.isWritingTool(item)
+    local fullType = itemFullType(item)
+    if fullType and SurvivalPlannerList.WRITING_TOOLS[fullType] then
+        return true
+    end
+
+    -- Build 42.19 exposes namespaced item tags through ItemTag enums.
+    -- Passing the enum (rather than a raw string) also supports modded pens.
+    if ItemTag and ItemTag.WRITE and item and item.hasTag and item:hasTag(ItemTag.WRITE) then
+        return true
+    end
+
+    local bareType = fullType and fullType:match("^[^%.]+%.(.+)$") or nil
+    return bareType ~= nil and (bareType:match("^Pen") or bareType:match("^Pencil")) ~= nil
+end
+
+function SurvivalPlannerList.isEraser(item)
+    if itemFullType(item) == "Base.Eraser" then
+        return true
+    end
+    return ItemTag
+        and ItemTag.ERASER
+        and item
+        and item.hasTag
+        and item:hasTag(ItemTag.ERASER)
+        or false
+end
+
 function SurvivalPlannerList.findWritingTool(player)
-    return SurvivalPlannerList.findPlayerItem(player, function(item)
-        local fullType = itemFullType(item)
-        if fullType and SurvivalPlannerList.WRITING_TOOLS[fullType] then
-            return true
-        end
-
-        -- Build 42.19 exposes namespaced item tags through ItemTag enums.
-        -- Passing the enum (rather than a raw string) also supports modded pens.
-        if ItemTag and ItemTag.WRITE and item and item.hasTag and item:hasTag(ItemTag.WRITE) then
-            return true
-        end
-
-        local bareType = fullType and fullType:match("^[^%.]+%.(.+)$") or nil
-        if bareType and (bareType:match("^Pen") or bareType:match("^Pencil")) then
-            return true
-        end
-        return false
-    end)
+    return SurvivalPlannerList.findPlayerItem(player, SurvivalPlannerList.isWritingTool)
 end
 
 function SurvivalPlannerList.findEraser(player)
-    return SurvivalPlannerList.findPlayerItem(player, function(item)
-        return itemFullType(item) == "Base.Eraser"
-    end)
+    return SurvivalPlannerList.findPlayerItem(player, SurvivalPlannerList.isEraser)
 end
 
 function SurvivalPlannerList.hasWritingTool(player)
@@ -181,6 +194,74 @@ local function nextId(data)
     return id
 end
 
+local function normalizeGoal(raw)
+    if type(raw) ~= "table" then
+        return nil
+    end
+
+    local fullType = trim(raw.fullType)
+    if fullType == "" then
+        fullType = trim(raw.targetType)
+    end
+    if fullType == "" then
+        return nil
+    end
+
+    local name = trim(raw.name)
+    if name == "" then
+        name = trim(raw.targetName)
+    end
+
+    return {
+        kind = "item",
+        fullType = fullType,
+        name = name ~= "" and name or fullType,
+        quantity = math.max(1, math.min(9999, math.floor(tonumber(raw.quantity) or 1))),
+    }
+end
+
+local function normalizeGoals(rawGoals)
+    local goals = {}
+    local byType = {}
+    if type(rawGoals) ~= "table" then
+        return goals
+    end
+
+    for _, rawGoal in ipairs(rawGoals) do
+        local goal = normalizeGoal(rawGoal)
+        if goal then
+            local existing = byType[goal.fullType]
+            if existing then
+                existing.quantity = math.max(existing.quantity, goal.quantity)
+                if existing.name == existing.fullType and goal.name ~= goal.fullType then
+                    existing.name = goal.name
+                end
+            else
+                byType[goal.fullType] = goal
+                table.insert(goals, goal)
+            end
+        end
+    end
+    return goals
+end
+
+function SurvivalPlannerList.copyGoals(rawGoals)
+    return normalizeGoals(rawGoals)
+end
+
+function SurvivalPlannerList.areGoalsMet(goals, counts)
+    if type(goals) ~= "table" or #goals == 0 then
+        return true
+    end
+    counts = counts or {}
+    for _, goal in ipairs(goals) do
+        if (tonumber(counts[goal.fullType]) or 0) < (tonumber(goal.quantity) or 1) then
+            return false
+        end
+    end
+    return true
+end
+
 local function normalizeSubtask(data, raw)
     if type(raw) ~= "table" then
         return nil
@@ -198,11 +279,20 @@ local function normalizeSubtask(data, raw)
         data.nextId = id + 1
     end
 
-    return {
+    local subtask = {
         id = id,
         title = title,
         done = raw.done == true,
+        goals = normalizeGoals(raw.goals),
+        autoComplete = raw.autoComplete == true,
+        completedAt = tonumber(raw.completedAt),
+        completedBy = trim(raw.completedBy) ~= "" and trim(raw.completedBy) or nil,
     }
+    if not subtask.done then
+        subtask.completedAt = nil
+        subtask.completedBy = nil
+    end
+    return subtask
 end
 
 local function normalizeTask(data, raw)
@@ -227,12 +317,21 @@ local function normalizeTask(data, raw)
         title = title,
         status = VALID_STATUSES[raw.status] and raw.status or SurvivalPlannerList.STATUS_ACTIVE,
         iconType = trim(raw.iconType) ~= "" and trim(raw.iconType) or SurvivalPlannerList.DEFAULT_ICON,
-        targetType = trim(raw.targetType) ~= "" and trim(raw.targetType) or nil,
-        targetName = trim(raw.targetName) ~= "" and trim(raw.targetName) or nil,
         createdAt = tonumber(raw.createdAt) or safeNow(),
         completedAt = tonumber(raw.completedAt),
+        completedBy = trim(raw.completedBy) ~= "" and trim(raw.completedBy) or nil,
+        autoComplete = raw.autoComplete == true,
+        goals = normalizeGoals(raw.goals),
         subtasks = {},
     }
+
+    if #task.goals == 0 and trim(raw.targetType) ~= "" then
+        table.insert(task.goals, normalizeGoal({
+            fullType = raw.targetType,
+            name = raw.targetName,
+            quantity = raw.targetQuantity,
+        }))
+    end
 
     if type(raw.subtasks) == "table" then
         for _, rawSubtask in ipairs(raw.subtasks) do
@@ -245,6 +344,7 @@ local function normalizeTask(data, raw)
 
     if task.status ~= SurvivalPlannerList.STATUS_DONE then
         task.completedAt = nil
+        task.completedBy = nil
     end
 
     return task
@@ -360,8 +460,8 @@ function SurvivalPlannerList.addTask(planner, values)
             and SurvivalPlannerList.STATUS_PLANNED
             or SurvivalPlannerList.STATUS_ACTIVE,
         iconType = trim(values.iconType) ~= "" and trim(values.iconType) or SurvivalPlannerList.DEFAULT_ICON,
-        targetType = trim(values.targetType) ~= "" and trim(values.targetType) or nil,
-        targetName = trim(values.targetName) ~= "" and trim(values.targetName) or nil,
+        goals = normalizeGoals(values.goals),
+        autoComplete = values.autoComplete == true,
         createdAt = safeNow(),
         completedAt = nil,
         subtasks = {},
@@ -385,8 +485,8 @@ function SurvivalPlannerList.updateTask(planner, taskId, values)
 
     task.title = title
     task.iconType = trim(values.iconType) ~= "" and trim(values.iconType) or SurvivalPlannerList.DEFAULT_ICON
-    task.targetType = trim(values.targetType) ~= "" and trim(values.targetType) or nil
-    task.targetName = trim(values.targetName) ~= "" and trim(values.targetName) or nil
+    task.goals = normalizeGoals(values.goals)
+    task.autoComplete = values.autoComplete == true
     return SurvivalPlannerList.save(planner)
 end
 
@@ -414,6 +514,53 @@ function SurvivalPlannerList.setTaskStatus(planner, taskId, status)
 
     task.status = status
     task.completedAt = status == SurvivalPlannerList.STATUS_DONE and safeNow() or nil
+    task.completedBy = status == SurvivalPlannerList.STATUS_DONE and "manual" or nil
+    return SurvivalPlannerList.save(planner)
+end
+
+function SurvivalPlannerList.reorderTask(planner, taskId, dropIndex)
+    local data = SurvivalPlannerList.getData(planner)
+    local task = data and SurvivalPlannerList.findTask(data, taskId) or nil
+    if not task or (
+        task.status ~= SurvivalPlannerList.STATUS_ACTIVE
+        and task.status ~= SurvivalPlannerList.STATUS_PLANNED
+    ) then
+        return false
+    end
+
+    local statusTasks = {}
+    local sourceIndex = nil
+    for _, candidate in ipairs(data.tasks) do
+        if candidate.status == task.status then
+            table.insert(statusTasks, candidate)
+            if tonumber(candidate.id) == tonumber(task.id) then
+                sourceIndex = #statusTasks
+            end
+        end
+    end
+    if not sourceIndex or #statusTasks < 2 then
+        return false
+    end
+
+    dropIndex = math.max(1, math.min(#statusTasks + 1, tonumber(dropIndex) or sourceIndex))
+    local insertIndex = dropIndex
+    if sourceIndex < dropIndex then
+        insertIndex = insertIndex - 1
+    end
+    if insertIndex == sourceIndex then
+        return false
+    end
+
+    table.remove(statusTasks, sourceIndex)
+    table.insert(statusTasks, insertIndex, task)
+
+    local statusIndex = 1
+    for index, candidate in ipairs(data.tasks) do
+        if candidate.status == task.status then
+            data.tasks[index] = statusTasks[statusIndex]
+            statusIndex = statusIndex + 1
+        end
+    end
     return SurvivalPlannerList.save(planner)
 end
 
@@ -448,10 +595,13 @@ function SurvivalPlannerList.clearDone(planner)
     return SurvivalPlannerList.save(planner)
 end
 
-function SurvivalPlannerList.addSubtask(planner, taskId, title)
+function SurvivalPlannerList.addSubtask(planner, taskId, values)
     local data = SurvivalPlannerList.getData(planner)
     local task = data and SurvivalPlannerList.findTask(data, taskId) or nil
-    title = trim(title)
+    if type(values) ~= "table" then
+        values = {title = values}
+    end
+    local title = trim(values.title)
     if not task or title == "" then
         return false
     end
@@ -460,6 +610,10 @@ function SurvivalPlannerList.addSubtask(planner, taskId, title)
         id = nextId(data),
         title = title,
         done = false,
+        goals = normalizeGoals(values.goals),
+        autoComplete = values.autoComplete == true,
+        completedAt = nil,
+        completedBy = nil,
     })
     return SurvivalPlannerList.save(planner)
 end
@@ -487,6 +641,27 @@ function SurvivalPlannerList.toggleSubtask(planner, taskId, subtaskId)
     end
 
     subtask.done = not subtask.done
+    subtask.completedAt = subtask.done and safeNow() or nil
+    subtask.completedBy = subtask.done and "manual" or nil
+    return SurvivalPlannerList.save(planner)
+end
+
+function SurvivalPlannerList.updateSubtask(planner, taskId, subtaskId, values)
+    local data = SurvivalPlannerList.getData(planner)
+    local task = data and SurvivalPlannerList.findTask(data, taskId) or nil
+    local subtask = task and SurvivalPlannerList.findSubtask(task, subtaskId) or nil
+    if not subtask or type(values) ~= "table" then
+        return false
+    end
+
+    local title = trim(values.title)
+    if title == "" then
+        return false
+    end
+
+    subtask.title = title
+    subtask.goals = normalizeGoals(values.goals)
+    subtask.autoComplete = values.autoComplete == true
     return SurvivalPlannerList.save(planner)
 end
 
@@ -627,9 +802,11 @@ function SurvivalPlannerList.getItemName(fullType)
 end
 
 SurvivalPlannerList._trackingCache = SurvivalPlannerList._trackingCache or {}
+SurvivalPlannerList._trackingRevision = SurvivalPlannerList._trackingRevision or 0
 
 function SurvivalPlannerList.invalidateTrackingCache()
     SurvivalPlannerList._trackingCache = {}
+    SurvivalPlannerList._trackingRevision = SurvivalPlannerList._trackingRevision + 1
 end
 
 function SurvivalPlannerList.getTrackedTargetsForPlayer(player)
@@ -653,8 +830,17 @@ function SurvivalPlannerList.getTrackedTargetsForPlayer(player)
                     targets[trackedItem.fullType] = trackedItem.name
                 end
                 for _, task in ipairs(data.tasks) do
-                    if task.status == SurvivalPlannerList.STATUS_ACTIVE and task.targetType then
-                        targets[task.targetType] = task.targetName or task.title
+                    if task.status == SurvivalPlannerList.STATUS_ACTIVE then
+                        for _, goal in ipairs(task.goals or {}) do
+                            targets[goal.fullType] = goal.name or task.title
+                        end
+                        for _, subtask in ipairs(task.subtasks or {}) do
+                            if not subtask.done then
+                                for _, goal in ipairs(subtask.goals or {}) do
+                                    targets[goal.fullType] = goal.name or subtask.title
+                                end
+                            end
+                        end
                     end
                 end
             end
