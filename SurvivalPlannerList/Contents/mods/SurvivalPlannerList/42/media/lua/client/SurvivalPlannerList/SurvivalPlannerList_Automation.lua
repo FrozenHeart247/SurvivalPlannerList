@@ -97,10 +97,10 @@ local function showCompletionHalo(player, completedTitles)
     local oneCompleted = getText("SPL_Auto_TaskCompleted")
     local manyCompleted = getText("SPL_Auto_TasksCompleted")
     if not oneCompleted or oneCompleted == "SPL_Auto_TaskCompleted" then
-        oneCompleted = "Task completed"
+        oneCompleted = "Plan completed"
     end
     if not manyCompleted or manyCompleted == "SPL_Auto_TasksCompleted" then
-        manyCompleted = "Planner tasks completed"
+        manyCompleted = "Plans completed"
     end
     if #completedTitles == 1 then
         message = oneCompleted .. ": " .. completedTitles[1]

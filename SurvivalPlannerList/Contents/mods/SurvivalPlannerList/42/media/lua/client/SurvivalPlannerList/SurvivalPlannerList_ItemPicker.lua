@@ -1,9 +1,9 @@
 require "ISUI/ISPanel"
 require "ISUI/ISButton"
-require "ISUI/ISTextEntryBox"
 require "ISUI/ISScrollingListBox"
 require "SurvivalPlannerList/SurvivalPlannerList_Core"
 require "SurvivalPlannerList/SurvivalPlannerList_Themes"
+require "SurvivalPlannerList/SurvivalPlannerList_TextEntry"
 require "SurvivalPlannerList/SurvivalPlannerList_StyledScrollBar"
 
 SPLItemPicker = ISPanel:derive("SPLItemPicker")
@@ -62,14 +62,19 @@ function SPLItemPicker:createChildren()
     ISPanel.createChildren(self)
 
     local titleHeight = getTextManager():getFontHeight(UIFont.Medium) + 14
-    self.search = ISTextEntryBox:new("", PAD, titleHeight + PAD, self.width - PAD * 2, 28)
+    self.search = SPLTextEntry:new(
+        "",
+        PAD,
+        titleHeight + PAD,
+        self.width - PAD * 2,
+        28,
+        self.theme
+    )
     self.search:initialise()
     self.search:instantiate()
     self.search:setClearButton(true)
-    self.search.backgroundColor = SPLThemes.copyColor(self.theme.input)
-    self.search.borderColor = SPLThemes.copyColor(self.theme.inputBorder)
     self.search.tooltip = self.catalogMode == "icons"
-        and uiText("SPL_Tooltip_SearchIcons", "Search task icons and item icons")
+        and uiText("SPL_Tooltip_SearchIcons", "Search plan icons and item icons")
         or uiText("SPL_Tooltip_SearchItems", "Search by item name or full type")
     self:addChild(self.search)
 

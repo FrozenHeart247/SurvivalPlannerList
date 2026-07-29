@@ -8,6 +8,7 @@ SPLNavigationManager.lastSyncByPlayer = SPLNavigationManager.lastSyncByPlayer or
 
 local SYNC_INTERVAL_MS = 350
 local LAYOUT_KEY = "SurvivalPlannerListNavigationLayout"
+local NAVIGATION_WIDGET_SIZE = 80
 
 local function timestampMs()
     if getTimestampMs then
@@ -40,13 +41,10 @@ local function getLayout(player)
     return layout
 end
 
-local function defaultPosition(playerNum, index)
+local function defaultPosition(playerNum)
     local left, top, width, height = playerScreenBounds(playerNum)
-    local spacing = 84
-    local perColumn = math.max(1, math.floor((height - 100) / spacing))
-    local row = (index - 1) % perColumn
-    local column = math.floor((index - 1) / perColumn)
-    return left + width - 104 - column * spacing, top + 70 + row * spacing
+    return left + math.floor((width - NAVIGATION_WIDGET_SIZE) / 2),
+        top + math.floor((height - NAVIGATION_WIDGET_SIZE) / 2)
 end
 
 local function savedPosition(player, playerNum, key)
@@ -117,13 +115,13 @@ function SPLNavigationManager.syncPlayer(playerNum, force)
     local active = {}
     local hideForMap = SPLMapIntegration.isWorldMapVisible()
 
-    for targetIndex, navigation in ipairs(targets) do
+    for _, navigation in ipairs(targets) do
         active[navigation.key] = true
         local widget = widgets[navigation.key]
         if not widget then
             local x, y = savedPosition(player, playerNum, navigation.key)
             if not x or not y then
-                x, y = defaultPosition(playerNum, targetIndex)
+                x, y = defaultPosition(playerNum)
             end
             widget = SPLNavigationWidget:new(
                 playerNum,

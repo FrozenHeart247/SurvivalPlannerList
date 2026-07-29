@@ -1,8 +1,8 @@
 require "ISUI/ISPanel"
 require "ISUI/ISButton"
-require "ISUI/ISTextEntryBox"
 require "SurvivalPlannerList/SurvivalPlannerList_Core"
 require "SurvivalPlannerList/SurvivalPlannerList_Themes"
+require "SurvivalPlannerList/SurvivalPlannerList_TextEntry"
 require "SurvivalPlannerList/SurvivalPlannerList_ItemPicker"
 require "SurvivalPlannerList/SurvivalPlannerList_GoalUI"
 require "SurvivalPlannerList/SurvivalPlannerList_MapIntegration"
@@ -22,11 +22,6 @@ local function uiText(key, fallback)
     return value
 end
 
-local function styleEntry(entry, theme)
-    entry.backgroundColor = SPLThemes.copyColor(theme.input)
-    entry.borderColor = SPLThemes.copyColor(theme.inputBorder)
-end
-
 function SPLTaskEditor:initialise()
     ISPanel.initialise(self)
 end
@@ -34,11 +29,17 @@ end
 function SPLTaskEditor:createChildren()
     ISPanel.createChildren(self)
 
-    self.titleEntry = ISTextEntryBox:new(self.task and self.task.title or "", PAD, 70, self.width - PAD * 2, 30)
+    self.titleEntry = SPLTextEntry:new(
+        self.task and self.task.title or "",
+        PAD,
+        70,
+        self.width - PAD * 2,
+        30,
+        self.theme
+    )
     self.titleEntry:initialise()
     self.titleEntry:instantiate()
     self.titleEntry:setClearButton(true)
-    styleEntry(self.titleEntry, self.theme)
     self:addChild(self.titleEntry)
 
     self.iconButton = ISButton:new(
@@ -148,11 +149,17 @@ function SPLTaskEditor:createChildren()
     SPLGoalUI.styleButton(self.addGoalButton, "primary")
     self:addChild(self.addGoalButton)
 
-    self.quantityEntry = ISTextEntryBox:new("1", controlsX, goalListY + 66, controlsWidth, BUTTON_HEIGHT)
+    self.quantityEntry = SPLTextEntry:new(
+        "1",
+        controlsX,
+        goalListY + 66,
+        controlsWidth,
+        BUTTON_HEIGHT,
+        self.theme
+    )
     self.quantityEntry:initialise()
     self.quantityEntry:instantiate()
     self.quantityEntry:setOnlyNumbers(true)
-    styleEntry(self.quantityEntry, self.theme)
     self:addChild(self.quantityEntry)
 
     self.applyQuantityButton = ISButton:new(
@@ -247,7 +254,7 @@ end
 function SPLTaskEditor:onChooseIcon()
     SPLItemPicker.open(
         self.playerNum,
-        uiText("SPL_Title_ChooseIcon", "Choose task icon"),
+        uiText("SPL_Title_ChooseIcon", "Choose plan icon"),
         self.iconType,
         self,
         SPLTaskEditor.onIconPicked,
@@ -425,7 +432,7 @@ function SPLTaskEditor:prerender()
     self:drawRectBorder(0, 0, self.width, self.height, 1, theme.panelBorder.r, theme.panelBorder.g, theme.panelBorder.b)
     self:drawTextCentre(self.windowTitle, self.width / 2, 10, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
 
-    self:drawText(uiText("SPL_Label_TaskTitle", "Task title"), PAD, 47, theme.mutedText.r, theme.mutedText.g, theme.mutedText.b, 1, UIFont.Small)
+    self:drawText(uiText("SPL_Label_TaskTitle", "Plan title"), PAD, 47, theme.mutedText.r, theme.mutedText.g, theme.mutedText.b, 1, UIFont.Small)
     self:drawText(uiText("SPL_Label_Icon", "Icon"), PAD, 112, theme.mutedText.r, theme.mutedText.g, theme.mutedText.b, 1, UIFont.Small)
     self:drawRect(PAD, 137, PREVIEW_SIZE, PREVIEW_SIZE, 0.96, theme.card.r, theme.card.g, theme.card.b)
     self:drawRectBorder(PAD, 137, PREVIEW_SIZE, PREVIEW_SIZE, 1, theme.cardBorder.r, theme.cardBorder.g, theme.cardBorder.b)
@@ -497,8 +504,8 @@ function SPLTaskEditor:new(playerNum, task, status, saveTarget, onSave)
     o.saveTarget = saveTarget
     o.onSaveCallback = onSave
     o.windowTitle = task
-        and uiText("SPL_Title_EditTask", "Edit task")
-        or uiText("SPL_Title_NewTask", "New task")
+        and uiText("SPL_Title_EditTask", "Edit plan")
+        or uiText("SPL_Title_NewTask", "New plan")
     o.iconType = task and task.iconType or SurvivalPlannerList.DEFAULT_ICON
     o.goals = SPLGoalUI.copyGoals(task and task.goals or nil)
     o.mapTargets = SurvivalPlannerList.copyMapTargets(task and task.mapTargets or nil)

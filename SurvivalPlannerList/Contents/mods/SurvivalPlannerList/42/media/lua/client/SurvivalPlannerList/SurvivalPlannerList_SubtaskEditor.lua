@@ -1,8 +1,8 @@
 require "ISUI/ISPanel"
 require "ISUI/ISButton"
-require "ISUI/ISTextEntryBox"
 require "SurvivalPlannerList/SurvivalPlannerList_Core"
 require "SurvivalPlannerList/SurvivalPlannerList_Themes"
+require "SurvivalPlannerList/SurvivalPlannerList_TextEntry"
 require "SurvivalPlannerList/SurvivalPlannerList_ItemPicker"
 require "SurvivalPlannerList/SurvivalPlannerList_GoalUI"
 
@@ -20,11 +20,6 @@ local function uiText(key, fallback)
     return value
 end
 
-local function styleEntry(entry, theme)
-    entry.backgroundColor = SPLThemes.copyColor(theme.input)
-    entry.borderColor = SPLThemes.copyColor(theme.inputBorder)
-end
-
 function SPLSubtaskEditor:initialise()
     ISPanel.initialise(self)
 end
@@ -32,11 +27,17 @@ end
 function SPLSubtaskEditor:createChildren()
     ISPanel.createChildren(self)
 
-    self.titleEntry = ISTextEntryBox:new(self.subtask and self.subtask.title or "", PAD, 70, self.width - PAD * 2, 30)
+    self.titleEntry = SPLTextEntry:new(
+        self.subtask and self.subtask.title or "",
+        PAD,
+        70,
+        self.width - PAD * 2,
+        30,
+        self.theme
+    )
     self.titleEntry:initialise()
     self.titleEntry:instantiate()
     self.titleEntry:setClearButton(true)
-    styleEntry(self.titleEntry, self.theme)
     self:addChild(self.titleEntry)
 
     local controlsWidth = 184
@@ -69,11 +70,17 @@ function SPLSubtaskEditor:createChildren()
     SPLGoalUI.styleButton(self.addGoalButton, "primary")
     self:addChild(self.addGoalButton)
 
-    self.quantityEntry = ISTextEntryBox:new("1", controlsX, goalListY + 66, controlsWidth, BUTTON_HEIGHT)
+    self.quantityEntry = SPLTextEntry:new(
+        "1",
+        controlsX,
+        goalListY + 66,
+        controlsWidth,
+        BUTTON_HEIGHT,
+        self.theme
+    )
     self.quantityEntry:initialise()
     self.quantityEntry:instantiate()
     self.quantityEntry:setOnlyNumbers(true)
-    styleEntry(self.quantityEntry, self.theme)
     self:addChild(self.quantityEntry)
 
     self.applyQuantityButton = ISButton:new(

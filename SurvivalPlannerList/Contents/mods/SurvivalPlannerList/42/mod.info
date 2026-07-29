@@ -1,6 +1,6 @@
 name=Survival Planner
 id=SurvivalPlannerList
-description=A physical survival planner with tasks, subtasks, item goals, inventory highlighting, and map navigation.
+description=A physical survival planner with plans, subtasks, item goals, inventory highlighting, and map navigation.
 author=krist
 modversion=0.5.0
 versionMin=42.19

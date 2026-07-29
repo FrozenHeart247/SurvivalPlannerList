@@ -1,6 +1,7 @@
 require "ISUI/ISPanel"
 require "ISUI/ISScrollingListBox"
 require "ISUI/ISButton"
+require "ISUI/ISResizeWidget"
 require "SurvivalPlannerList/SurvivalPlannerList_Core"
 require "SurvivalPlannerList/SurvivalPlannerList_Themes"
 require "SurvivalPlannerList/SurvivalPlannerList_StyledScrollBar"
@@ -13,6 +14,7 @@ SPLPlannerList = ISScrollingListBox:derive("SPLPlannerList")
 SPLConfirmDialog = ISPanel:derive("SPLConfirmDialog")
 SPLThemeRow = ISButton:derive("SPLThemeRow")
 SPLThemeMenu = ISPanel:derive("SPLThemeMenu")
+SPLResizeWidget = ISResizeWidget:derive("SPLResizeWidget")
 SPLMainPanel = ISPanel:derive("SPLMainPanel")
 SPLMainPanel.instances = SPLMainPanel.instances or {}
 SPLMainPanel.savedPositions = SPLMainPanel.savedPositions or {}
@@ -41,6 +43,10 @@ local THEME_BUTTON_SIZE = 26
 local THEME_MENU_WIDTH = 224
 local THEME_ROW_HEIGHT = 34
 local THEME_ROW_GAP = 4
+local MIN_PANEL_WIDTH = 620
+local MIN_PANEL_HEIGHT = 430
+local RESIZE_HANDLE_SIZE = 18
+local RESIZE_BOTTOM_INSET = RESIZE_HANDLE_SIZE + 3
 
 local TAB_ORDER = {
     SurvivalPlannerList.STATUS_ACTIVE,
@@ -77,6 +83,8 @@ local function savePanelPosition(panel)
     local position = {
         nx = clampUnit(panel.x / availableWidth),
         ny = clampUnit(panel.y / availableHeight),
+        width = math.floor(panel.width),
+        height = math.floor(panel.height),
     }
     local index = panel.playerNum + 1
     SPLMainPanel.savedPositions[index] = position
@@ -86,6 +94,8 @@ local function savePanelPosition(panel)
         player:getModData()[PANEL_LAYOUT_KEY] = {
             nx = position.nx,
             ny = position.ny,
+            width = position.width,
+            height = position.height,
         }
     end
 end
@@ -100,6 +110,8 @@ local function restorePanelPosition(panel)
             position = {
                 nx = clampUnit(stored.nx),
                 ny = clampUnit(stored.ny),
+                width = tonumber(stored.width),
+                height = tonumber(stored.height),
             }
         end
     end
@@ -109,10 +121,87 @@ local function restorePanelPosition(panel)
 
     local screenWidth = getCore():getScreenWidth()
     local screenHeight = getCore():getScreenHeight()
+    local maximumWidth = math.max(1, screenWidth - 20)
+    local maximumHeight = math.max(1, screenHeight - 20)
+    panel.width = math.max(
+        math.min(MIN_PANEL_WIDTH, maximumWidth),
+        math.min(maximumWidth, tonumber(position.width) or panel.width)
+    )
+    panel.height = math.max(
+        math.min(MIN_PANEL_HEIGHT, maximumHeight),
+        math.min(maximumHeight, tonumber(position.height) or panel.height)
+    )
     local availableWidth = math.max(0, screenWidth - panel.width)
     local availableHeight = math.max(0, screenHeight - panel.height)
     panel:setX(math.floor(clampUnit(position.nx) * availableWidth))
     panel:setY(math.floor(clampUnit(position.ny) * availableHeight))
+end
+
+function SPLResizeWidget:onMouseDown(x, y)
+    if not self:getIsVisible() then
+        return
+    end
+
+    self.resizeStartMouseX = getMouseX()
+    self.resizeStartMouseY = getMouseY()
+    self.resizeStartWidth = self.target.width
+    self.resizeStartHeight = self.target.height
+    self.resizing = true
+    self:setCapture(true)
+    return true
+end
+
+function SPLResizeWidget:updateResize()
+    if not self.resizing then
+        return
+    end
+
+    local width = self.resizeStartWidth + (getMouseX() - self.resizeStartMouseX)
+    local height = self.resizeStartHeight + (getMouseY() - self.resizeStartMouseY)
+    if self.yonly then
+        width = self.resizeStartWidth
+    end
+
+    if self.resizeFunction then
+        self.resizeFunction(self.target, width, height)
+    else
+        self.target:setWidth(width)
+        self.target:setHeight(height)
+    end
+end
+
+function SPLResizeWidget:onMouseMove(dx, dy)
+    self.mouseOver = true
+    self:updateResize()
+end
+
+function SPLResizeWidget:onMouseMoveOutside(dx, dy)
+    self.mouseOver = false
+    self:updateResize()
+end
+
+function SPLResizeWidget:onMouseUp(x, y)
+    local result = ISResizeWidget.onMouseUp(self, x, y)
+    savePanelPosition(self.target)
+    return result
+end
+
+function SPLResizeWidget:onMouseUpOutside(x, y)
+    local result = ISResizeWidget.onMouseUpOutside(self, x, y)
+    savePanelPosition(self.target)
+    return result
+end
+
+function SPLResizeWidget:render()
+    local theme = self.target and self.target.theme
+    if not theme then
+        return
+    end
+
+    local color = self.mouseOver and theme.accentHover or theme.mutedText
+    self:drawLine2(5, self.height - 3, self.width - 3, 5, 1, color.r, color.g, color.b)
+    self:drawLine2(10, self.height - 3, self.width - 3, 10, 1, color.r, color.g, color.b)
+    self:drawLine2(15, self.height - 3, self.width - 3, 15, 1, color.r, color.g, color.b)
 end
 
 local function taskStatusText(status)
@@ -891,7 +980,7 @@ function SPLMainPanel:createChildren()
 
     local row1Y = self.list:getBottom() + PAD
     local halfWidth = math.floor((self.width - PAD * 3) / 2)
-    self.addButton = self:createFooterButton(PAD, row1Y, halfWidth, uiText("SPL_Button_NewTask", "Create task"), SPLMainPanel.onAdd)
+    self.addButton = self:createFooterButton(PAD, row1Y, halfWidth, uiText("SPL_Button_NewTask", "Create plan"), SPLMainPanel.onAdd)
     self.editButton = self:createFooterButton(PAD * 2 + halfWidth, row1Y, halfWidth, uiText("SPL_Button_Edit", "Edit"), SPLMainPanel.onEdit)
 
     local row2Y = row1Y + BUTTON_HEIGHT + PAD
@@ -899,8 +988,20 @@ function SPLMainPanel:createChildren()
     self.subtaskButton = self:createFooterButton(PAD, row2Y, quarterWidth, uiText("SPL_Button_AddSubtask", "Add subtask"), SPLMainPanel.onAddSubtask)
     self.secondaryButton = self:createFooterButton(PAD * 2 + quarterWidth, row2Y, quarterWidth, uiText("SPL_Button_Plan", "Plan"), SPLMainPanel.onSecondaryAction)
     self.primaryButton = self:createFooterButton(PAD * 3 + quarterWidth * 2, row2Y, quarterWidth, uiText("SPL_Button_Complete", "Complete"), SPLMainPanel.onPrimaryAction)
-    self.deleteButton = self:createFooterButton(PAD * 4 + quarterWidth * 3, row2Y, self.width - PAD * 5 - quarterWidth * 3, uiText("SPL_Button_DeleteTask", "Delete task"), SPLMainPanel.onDelete)
+    self.deleteButton = self:createFooterButton(PAD * 4 + quarterWidth * 3, row2Y, self.width - PAD * 5 - quarterWidth * 3, uiText("SPL_Button_DeleteTask", "Delete plan"), SPLMainPanel.onDelete)
 
+    self.resizeWidget = SPLResizeWidget:new(
+        self.width - RESIZE_HANDLE_SIZE,
+        self.height - RESIZE_HANDLE_SIZE,
+        RESIZE_HANDLE_SIZE,
+        RESIZE_HANDLE_SIZE,
+        self
+    )
+    self.resizeWidget:initialise()
+    self.resizeWidget.resizeFunction = SPLMainPanel.resizeTo
+    self:addChild(self.resizeWidget)
+
+    self:layoutChildren(false)
     self:applyTheme(nil, false)
     self:refreshList()
 end
@@ -911,6 +1012,120 @@ function SPLMainPanel:createFooterButton(x, y, width, title, callback)
     button:instantiate()
     self:addChild(button)
     return button
+end
+
+function SPLMainPanel:reflowListRows()
+    if not self.list then
+        return
+    end
+
+    for _, row in ipairs(self.list.items) do
+        local value = row.item
+        if value and value.kind == "task" and value.task then
+            row.titleText, row.titleHeight, row.headerHeight = calculateTaskLayout(value.task, self.list.width)
+            row.height = row.headerHeight + CARD_GAP + TASK_BOTTOM_PAD
+            for _, subtask in ipairs(value.task.subtasks or {}) do
+                row.height = row.height + calculateSubtaskHeight(subtask)
+            end
+            row.height = row.height
+                + math.max(0, #(value.task.subtasks or {}) - 1) * SUBTASK_SEPARATOR_HEIGHT
+        elseif value and value.kind == "tracked" then
+            row.height = TRACKING_HEIGHT + CARD_GAP
+        end
+    end
+
+    local maximumScroll = math.max(0, (self.list:getScrollHeight() or 0) - self.list.height)
+    self.list:setYScroll(math.max(-maximumScroll, math.min(0, self.list:getYScroll())))
+end
+
+function SPLMainPanel:layoutChildren(reflowRows)
+    if not self.closeButton or not self.list then
+        return
+    end
+
+    self.closeButton:setX(self.width - PAD - self.closeButton.width)
+    self.themeButton:setX(self.closeButton.x - THEME_BUTTON_SIZE - 4)
+
+    local tabGap = 4
+    local tabY = STATUS_HEIGHT + 5
+    local availableWidth = self.width - PAD * 2 - tabGap * (#TAB_ORDER - 1)
+    local tabWidth = math.floor(availableWidth / #TAB_ORDER)
+    for index, tabId in ipairs(TAB_ORDER) do
+        local button = self.tabButtons[tabId]
+        local x = PAD + (index - 1) * (tabWidth + tabGap)
+        local width = index == #TAB_ORDER and (self.width - PAD - x) or tabWidth
+        button:setX(x)
+        button:setWidth(width)
+    end
+
+    local listY = tabY + TAB_HEIGHT + 10
+    local row2Y = self.height - RESIZE_BOTTOM_INSET - BUTTON_HEIGHT
+    local row1Y = row2Y - PAD - BUTTON_HEIGHT
+    local listBottom = row1Y - PAD
+    self.list:setX(PAD)
+    self.list:setY(listY)
+    self.list:setWidth(self.width - PAD * 2)
+    self.list:setHeight(math.max(80, listBottom - listY))
+
+    if self.list.vscroll then
+        self.list.vscroll:setX(self.list.width - self.list.vscroll.width - 2)
+        self.list.vscroll:setY(0)
+        self.list.vscroll:setHeight(self.list.height)
+    end
+
+    local halfWidth = math.floor((self.width - PAD * 3) / 2)
+    self.addButton:setX(PAD)
+    self.addButton:setY(row1Y)
+    self.addButton:setWidth(halfWidth)
+    self.editButton:setX(PAD * 2 + halfWidth)
+    self.editButton:setY(row1Y)
+    self.editButton:setWidth(self.width - PAD - self.editButton.x)
+
+    local quarterWidth = math.floor((self.width - PAD * 5) / 4)
+    local row2Buttons = {
+        self.subtaskButton,
+        self.secondaryButton,
+        self.primaryButton,
+        self.deleteButton,
+    }
+    for index, button in ipairs(row2Buttons) do
+        local x = PAD * index + quarterWidth * (index - 1)
+        local width = index == #row2Buttons and (self.width - PAD - x) or quarterWidth
+        button:setX(x)
+        button:setY(row2Y)
+        button:setWidth(width)
+    end
+
+    if self.themeMenu then
+        self.themeMenu:setX(self.width - PAD - THEME_MENU_WIDTH)
+    end
+    if self.resizeWidget then
+        self.resizeWidget:setX(self.width - RESIZE_HANDLE_SIZE)
+        self.resizeWidget:setY(self.height - RESIZE_HANDLE_SIZE)
+    end
+
+    if reflowRows ~= false then
+        self:reflowListRows()
+    end
+end
+
+function SPLMainPanel:resizeTo(width, height)
+    local screenWidth = getCore():getScreenWidth()
+    local screenHeight = getCore():getScreenHeight()
+    local maximumWidth = math.max(1, screenWidth - self.x)
+    local maximumHeight = math.max(1, screenHeight - self.y)
+    local minimumWidth = math.min(MIN_PANEL_WIDTH, maximumWidth)
+    local minimumHeight = math.min(MIN_PANEL_HEIGHT, maximumHeight)
+
+    width = math.floor(math.max(minimumWidth, math.min(maximumWidth, width)))
+    height = math.floor(math.max(minimumHeight, math.min(maximumHeight, height)))
+    if width == self.width and height == self.height then
+        return
+    end
+
+    self:setWidth(width)
+    self:setHeight(height)
+    self:layoutChildren(true)
 end
 
 function SPLMainPanel:onThemeButton()
@@ -1126,7 +1341,7 @@ function SPLMainPanel:updateButtons()
     self.addButton:setTitle(
         self.currentTab == SurvivalPlannerList.STATUS_DONE
             and uiText("SPL_Button_ClearDone", "Clear done")
-            or uiText("SPL_Button_NewTask", "Create task")
+            or uiText("SPL_Button_NewTask", "Create plan")
     )
     SPLThemes.setButtonEnabled(self.addButton, editable and (
         self.currentTab ~= SurvivalPlannerList.STATUS_DONE or #self.list.items > 0
@@ -1260,7 +1475,7 @@ function SPLMainPanel:onAdd()
     end
     if self.currentTab == SurvivalPlannerList.STATUS_DONE then
         self:showConfirm(
-            uiText("SPL_Confirm_ClearDone", "Delete every completed task?"),
+            uiText("SPL_Confirm_ClearDone", "Delete every completed plan?"),
             SPLMainPanel.doClearDone,
             nil,
             nil,
@@ -1319,7 +1534,7 @@ function SPLMainPanel:onTaskIconClicked(task)
     end
     SPLItemPicker.open(
         self.playerNum,
-        uiText("SPL_Title_ChooseIcon", "Choose task icon"),
+        uiText("SPL_Title_ChooseIcon", "Choose plan icon"),
         task.iconType,
         self,
         SPLMainPanel.onTaskIconPicked,
@@ -1421,12 +1636,12 @@ function SPLMainPanel:onPrimaryAction()
     local message
     if self.currentTab == SurvivalPlannerList.STATUS_ACTIVE then
         status = SurvivalPlannerList.STATUS_DONE
-        message = uiText("SPL_Confirm_CompleteTask", "Mark this task as completed?")
+        message = uiText("SPL_Confirm_CompleteTask", "Mark this plan as completed?")
     else
         status = SurvivalPlannerList.STATUS_ACTIVE
         message = self.currentTab == SurvivalPlannerList.STATUS_PLANNED
-            and uiText("SPL_Confirm_ActivateTask", "Move this task to Active?")
-            or uiText("SPL_Confirm_ReopenTask", "Reopen this completed task?")
+            and uiText("SPL_Confirm_ActivateTask", "Move this plan to Active?")
+            or uiText("SPL_Confirm_ReopenTask", "Reopen this completed plan?")
     end
     self:showConfirm(message .. "\n" .. task.title, SPLMainPanel.doSetStatus, task.id, status)
 end
@@ -1437,7 +1652,7 @@ function SPLMainPanel:onSecondaryAction()
         return
     end
     self:showConfirm(
-        uiText("SPL_Confirm_PlanTask", "Move this task to Planned?") .. "\n" .. task.title,
+        uiText("SPL_Confirm_PlanTask", "Move this plan to Planned?") .. "\n" .. task.title,
         SPLMainPanel.doSetStatus,
         task.id,
         SurvivalPlannerList.STATUS_PLANNED
@@ -1456,7 +1671,7 @@ function SPLMainPanel:onDelete()
         return
     end
     self:showConfirm(
-        uiText("SPL_Confirm_DeleteTask", "Permanently delete this task?") .. "\n" .. task.title,
+        uiText("SPL_Confirm_DeleteTask", "Permanently delete this plan?") .. "\n" .. task.title,
         SPLMainPanel.doDeleteTask,
         task.id,
         nil,
@@ -1582,6 +1797,8 @@ function SPLMainPanel:new(playerNum, planner)
     o.currentTab = SurvivalPlannerList.STATUS_ACTIVE
     o.background = true
     o.moveWithMouse = true
+    o.minimumWidth = math.min(MIN_PANEL_WIDTH, math.max(1, screenWidth - 20))
+    o.minimumHeight = math.min(MIN_PANEL_HEIGHT, math.max(1, screenHeight - 20))
     o.backgroundColor = copyColor(o.theme.panel)
     o.borderColor = copyColor(o.theme.panelBorder)
     restorePanelPosition(o)

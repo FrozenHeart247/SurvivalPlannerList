@@ -2,6 +2,7 @@ module Base
 {
     craftRecipe BindSurvivalPlanner
     {
+        Icon = Item_SPL_Icon_MainPlanner,
         timedAction = Making,
         time = 120,
         Tags = AnySurfaceCraft,
