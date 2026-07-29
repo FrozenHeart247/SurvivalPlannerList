@@ -45,6 +45,7 @@
     "SPL_Message_NeedBoth": "Для изменения планировщика нужны письменная принадлежность и ластик.",
     "SPL_Message_NeedEraser": "Для изменения планировщика нужен ластик.",
     "SPL_Message_NeedWritingTool": "Для изменения планировщика нужна письменная принадлежность.",
+    "SPL_Message_PlannerNotCarried": "Планировщик не найден в инвентаре или рюкзаках.",
     "SPL_Auto_TaskCompleted": "Задача выполнена",
     "SPL_Auto_TasksCompleted": "Выполнено задач из планировщика",
     "SPL_Hint_AutoTools": "Для автозавершения нужны письменная принадлежность и ластик.",
@@ -68,5 +69,16 @@
     "SPL_Title_TrackItem": "Выберите предмет для отслеживания",
     "SPL_Tooltip_ChangeIcon": "Изменить иконку задачи",
     "SPL_Tooltip_LinkItem": "Подсветить предмет и подать сигнал, когда он появится",
-    "SPL_Tooltip_SearchItems": "Поиск по названию или полному типу предмета"
+    "SPL_Tooltip_SearchItems": "Поиск по названию или полному типу предмета",
+    "SPL_Button_ChooseMapTarget": "Выбрать на карте",
+    "SPL_Button_CurrentPosition": "Текущая позиция",
+    "SPL_Button_ClearMapTarget": "Убрать точку",
+    "SPL_Check_TrackTask": "Показывать маркер на карте и указатель направления",
+    "SPL_Label_MapTarget": "Точка на карте",
+    "SPL_Label_NoMapTarget": "Точка на карте не выбрана",
+    "SPL_Map_Target": "Цель задачи",
+    "SPL_Map_CurrentPosition": "Текущая позиция",
+    "SPL_Map_PlaceHint": "Щёлкните по карте, чтобы установить цель. Перетаскивание двигает карту; Esc отменяет.",
+    "SPL_Unit_Tiles": "клеток",
+    "SPL_Unit_Kilometers": "км"
 }

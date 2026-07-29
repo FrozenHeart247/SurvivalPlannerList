@@ -1271,4 +1271,23 @@ end
 
 SurvivalPlannerList.openPlannerUI = SPLMainPanel.open
 
+function SPLMainPanel.openTask(playerNum, planner, taskId)
+    local data = SurvivalPlannerList.getData(planner)
+    local task = data and SurvivalPlannerList.findTask(data, taskId) or nil
+    if not task then
+        return nil
+    end
+
+    local panel = SPLMainPanel.open(playerNum, planner)
+    if not panel then
+        return nil
+    end
+    panel.currentTab = task.status
+    panel:refreshList(task.id)
+    panel:bringToTop()
+    return panel
+end
+
+SurvivalPlannerList.openPlannerTask = SPLMainPanel.openTask
+
 return SPLMainPanel

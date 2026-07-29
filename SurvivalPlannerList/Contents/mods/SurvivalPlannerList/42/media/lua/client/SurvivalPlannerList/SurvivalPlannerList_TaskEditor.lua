@@ -4,6 +4,7 @@ require "ISUI/ISTextEntryBox"
 require "SurvivalPlannerList/SurvivalPlannerList_Core"
 require "SurvivalPlannerList/SurvivalPlannerList_ItemPicker"
 require "SurvivalPlannerList/SurvivalPlannerList_GoalUI"
+require "SurvivalPlannerList/SurvivalPlannerList_MapIntegration"
 
 SPLTaskEditor = ISPanel:derive("SPLTaskEditor")
 
@@ -53,11 +54,73 @@ function SPLTaskEditor:createChildren()
     SPLGoalUI.styleButton(self.iconButton, "neutral")
     self:addChild(self.iconButton)
 
+    local mapPanelY = 227
+    local mapPanelHeight = 108
+    local mapButtonY = mapPanelY + 35
+    local mapButtonGap = 10
+    local mapButtonWidth = math.floor((self.width - PAD * 2 - mapButtonGap * 2) / 3)
+
+    self.chooseMapButton = ISButton:new(
+        PAD,
+        mapButtonY,
+        mapButtonWidth,
+        BUTTON_HEIGHT,
+        uiText("SPL_Button_ChooseMapTarget", "Choose on map"),
+        self,
+        SPLTaskEditor.onChooseMapTarget
+    )
+    self.chooseMapButton:initialise()
+    self.chooseMapButton:instantiate()
+    SPLGoalUI.styleButton(self.chooseMapButton, "primary")
+    self:addChild(self.chooseMapButton)
+
+    self.currentPositionButton = ISButton:new(
+        self.chooseMapButton:getRight() + mapButtonGap,
+        mapButtonY,
+        mapButtonWidth,
+        BUTTON_HEIGHT,
+        uiText("SPL_Button_CurrentPosition", "Use current position"),
+        self,
+        SPLTaskEditor.onUseCurrentPosition
+    )
+    self.currentPositionButton:initialise()
+    self.currentPositionButton:instantiate()
+    SPLGoalUI.styleButton(self.currentPositionButton, "neutral")
+    self:addChild(self.currentPositionButton)
+
+    self.clearMapButton = ISButton:new(
+        self.currentPositionButton:getRight() + mapButtonGap,
+        mapButtonY,
+        mapButtonWidth,
+        BUTTON_HEIGHT,
+        uiText("SPL_Button_ClearMapTarget", "Clear target"),
+        self,
+        SPLTaskEditor.onClearMapTarget
+    )
+    self.clearMapButton:initialise()
+    self.clearMapButton:instantiate()
+    SPLGoalUI.styleButton(self.clearMapButton, "danger")
+    self:addChild(self.clearMapButton)
+
+    self.navigationButton = SPLCheckButton:new(
+        PAD,
+        mapPanelY + 72,
+        self.width - PAD * 2,
+        30,
+        uiText("SPL_Check_TrackTask", "Show map marker and direction indicator"),
+        self,
+        SPLTaskEditor.onToggleNavigation,
+        self.navigationEnabled
+    )
+    self.navigationButton:initialise()
+    self.navigationButton:instantiate()
+    self:addChild(self.navigationButton)
+
     local controlsWidth = 190
     local goalListX = PAD
-    local goalListY = 226
+    local goalListY = 371
     local goalListWidth = self.width - PAD * 2 - controlsWidth - 12
-    local goalListHeight = 174
+    local goalListHeight = 168
 
     self.goalList = SPLGoalList:new(goalListX, goalListY, goalListWidth, goalListHeight)
     self.goalList:initialise()
@@ -118,7 +181,7 @@ function SPLTaskEditor:createChildren()
 
     self.autoButton = SPLCheckButton:new(
         PAD,
-        414,
+        551,
         self.width - PAD * 2,
         34,
         uiText("SPL_Check_AutoTask", "Auto-complete when all goals and subtasks are complete"),
@@ -192,6 +255,68 @@ function SPLTaskEditor:onIconPicked(entry)
     self.iconType = entry.fullType
 end
 
+function SPLTaskEditor:getMapTarget()
+    if type(self.mapTargets) ~= "table" then
+        return nil
+    end
+    return self.mapTargets[1]
+end
+
+function SPLTaskEditor:onChooseMapTarget()
+    local editor = self
+    local opened = SPLMapIntegration.beginPlacement(
+        self.playerNum,
+        self:getMapTarget(),
+        function(target)
+            if target then
+                if SurvivalPlannerList.trim(target.name) == "" then
+                    target.name = uiText("SPL_Map_Target", "Map target")
+                end
+                editor.mapTargets = {target}
+                editor.trackedTargetId = target.id
+            end
+            editor:setVisible(true)
+            editor:bringToTop()
+        end
+    )
+    if opened then
+        self:setVisible(false)
+    end
+end
+
+function SPLTaskEditor:onUseCurrentPosition()
+    local player = getSpecificPlayer(self.playerNum)
+    if not player then
+        return
+    end
+    local current = self:getMapTarget() or {}
+    local target = {
+        id = current.id,
+        name = uiText("SPL_Map_CurrentPosition", "Current position"),
+        x = player:getX(),
+        y = player:getY(),
+        z = math.floor(player:getZ()),
+        radius = current.radius or 15,
+    }
+    self.mapTargets = {target}
+    self.trackedTargetId = target.id
+end
+
+function SPLTaskEditor:onClearMapTarget()
+    self.mapTargets = {}
+    self.trackedTargetId = nil
+    self.navigationEnabled = false
+    self.navigationButton:setChecked(false)
+end
+
+function SPLTaskEditor:onToggleNavigation()
+    if not self:getMapTarget() or self.status == SurvivalPlannerList.STATUS_DONE then
+        return
+    end
+    self.navigationEnabled = not self.navigationEnabled
+    self.navigationButton:setChecked(self.navigationEnabled)
+end
+
 function SPLTaskEditor:onAddGoal()
     SPLItemPicker.open(
         self.playerNum,
@@ -241,6 +366,14 @@ function SPLTaskEditor:update()
     local hasCondition = #self.goals > 0 or self.hasSubtasks
     self.saveButton:setEnable(hasTitle)
     self.autoButton:setEnable(hasCondition)
+    local hasMapTarget = self:getMapTarget() ~= nil
+    local canNavigate = hasMapTarget and self.status ~= SurvivalPlannerList.STATUS_DONE
+    self.navigationButton:setEnable(canNavigate)
+    self.clearMapButton:setEnable(hasMapTarget)
+    if not canNavigate and self.navigationEnabled then
+        self.navigationEnabled = false
+        self.navigationButton:setChecked(false)
+    end
     if not hasCondition and self.autoComplete then
         self.autoComplete = false
         self.autoButton:setChecked(false)
@@ -257,6 +390,9 @@ function SPLTaskEditor:onSave()
         title = SurvivalPlannerList.trim(self.titleEntry:getText()),
         iconType = self.iconType,
         goals = SPLGoalUI.copyGoals(self.goals),
+        mapTargets = SurvivalPlannerList.copyMapTargets(self.mapTargets),
+        trackedTargetId = self.trackedTargetId,
+        navigationEnabled = self.navigationEnabled,
         autoComplete = self.autoComplete,
         status = self.status,
     }
@@ -292,7 +428,22 @@ function SPLTaskEditor:prerender()
         self:drawTextureScaledAspect(icon, PAD + 6, 143, PREVIEW_SIZE - 12, PREVIEW_SIZE - 12, 1, 1, 1, 1)
     end
 
-    self:drawText(uiText("SPL_Label_ItemGoals", "Item goals"), PAD, 203, 0.78, 0.75, 0.65, 1, UIFont.Small)
+    self:drawText(uiText("SPL_Label_MapTarget", "Map target"), PAD, 203, 0.78, 0.75, 0.65, 1, UIFont.Small)
+    self:drawRect(PAD, 227, self.width - PAD * 2, 108, 0.80, 0.075, 0.070, 0.055)
+    self:drawRectBorder(PAD, 227, self.width - PAD * 2, 108, 0.75, 0.38, 0.34, 0.27)
+    local mapTarget = self:getMapTarget()
+    local mapTargetText = uiText("SPL_Label_NoMapTarget", "No map target selected")
+    if mapTarget then
+        mapTargetText = string.format(
+            "%s   X: %d   Y: %d",
+            mapTarget.name or uiText("SPL_Map_Target", "Map target"),
+            math.floor(mapTarget.x),
+            math.floor(mapTarget.y)
+        )
+    end
+    self:drawText(mapTargetText, PAD + 12, 236, 0.84, 0.82, 0.70, 1, UIFont.Small)
+
+    self:drawText(uiText("SPL_Label_ItemGoals", "Item goals"), PAD, 348, 0.78, 0.75, 0.65, 1, UIFont.Small)
     self:drawText(
         uiText("SPL_Label_Quantity", "Quantity"),
         self.quantityEntry.x,
@@ -307,7 +458,7 @@ function SPLTaskEditor:prerender()
         self:drawTextCentre(
             uiText("SPL_Label_NoGoals", "No item goals"),
             self.goalList.x + self.goalList.width / 2,
-            self.goalList.y + 76,
+            self.goalList.y + 72,
             0.48,
             0.46,
             0.40,
@@ -318,7 +469,7 @@ function SPLTaskEditor:prerender()
     self:drawText(
         uiText("SPL_Hint_AutoTools", "Automatic completion requires a writing tool and an eraser."),
         PAD + 2,
-        454,
+        591,
         0.58,
         0.57,
         0.49,
@@ -331,7 +482,7 @@ function SPLTaskEditor:new(playerNum, task, status, saveTarget, onSave)
     local screenWidth = getCore():getScreenWidth()
     local screenHeight = getCore():getScreenHeight()
     local width = math.min(700, screenWidth - 60)
-    local height = math.min(530, screenHeight - 60)
+    local height = math.min(660, screenHeight - 60)
     local o = ISPanel.new(self, (screenWidth - width) / 2, (screenHeight - height) / 2, width, height)
     o.playerNum = playerNum or 0
     o.task = task
@@ -343,6 +494,9 @@ function SPLTaskEditor:new(playerNum, task, status, saveTarget, onSave)
         or uiText("SPL_Title_NewTask", "New task")
     o.iconType = task and task.iconType or SurvivalPlannerList.DEFAULT_ICON
     o.goals = SPLGoalUI.copyGoals(task and task.goals or nil)
+    o.mapTargets = SurvivalPlannerList.copyMapTargets(task and task.mapTargets or nil)
+    o.trackedTargetId = task and task.trackedTargetId or nil
+    o.navigationEnabled = task and task.navigationEnabled == true or false
     o.autoComplete = task and task.autoComplete == true or false
     o.hasSubtasks = task and #(task.subtasks or {}) > 0 or false
     o.backgroundColor = {r = 0.115, g = 0.105, b = 0.085, a = 0.98}

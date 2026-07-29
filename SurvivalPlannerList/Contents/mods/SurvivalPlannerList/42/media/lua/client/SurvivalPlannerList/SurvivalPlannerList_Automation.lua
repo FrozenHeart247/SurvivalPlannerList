@@ -38,6 +38,7 @@ function Automation.evaluatePlanner(planner, counts, canWrite)
 
     local changed = false
     local completedTitles = {}
+    local completedTaskIds = {}
     local completedAt = SurvivalPlannerList.now()
 
     for _, task in ipairs(data.tasks or {}) do
@@ -62,10 +63,16 @@ function Automation.evaluatePlanner(planner, counts, canWrite)
                 task.status = SurvivalPlannerList.STATUS_DONE
                 task.completedAt = completedAt
                 task.completedBy = "automatic"
+                task.navigationEnabled = false
                 table.insert(completedTitles, task.title)
+                table.insert(completedTaskIds, task.id)
                 changed = true
             end
         end
+    end
+
+    for index = #completedTaskIds, 1, -1 do
+        SurvivalPlannerList.moveTaskToFront(data, completedTaskIds[index])
     end
 
     return changed, completedTitles
@@ -82,7 +89,7 @@ local function refreshOpenPanels(playerNum)
 end
 
 local function showCompletionHalo(player, completedTitles)
-    if #completedTitles == 0 or not HaloTextHelper or not HaloTextHelper.addText then
+    if #completedTitles == 0 then
         return
     end
 
@@ -100,7 +107,11 @@ local function showCompletionHalo(player, completedTitles)
     else
         message = manyCompleted .. ": " .. tostring(#completedTitles)
     end
-    HaloTextHelper.addText(player, message)
+    if player and player.setHaloNote then
+        player:setHaloNote(message, 155, 205, 105, 300)
+    elseif HaloTextHelper and HaloTextHelper.addText then
+        HaloTextHelper.addText(player, message)
+    end
 end
 
 function Automation.scanPlayer(player)

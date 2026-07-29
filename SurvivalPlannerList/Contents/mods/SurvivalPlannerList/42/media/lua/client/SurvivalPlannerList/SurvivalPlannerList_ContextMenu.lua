@@ -1,6 +1,8 @@
 require "ISUI/ISInventoryPane"
 require "SurvivalPlannerList/SurvivalPlannerList_Core"
 require "SurvivalPlannerList/SurvivalPlannerList_MainPanel"
+require "SurvivalPlannerList/SurvivalPlannerList_QuickButton"
+require "SurvivalPlannerList/SurvivalPlannerList_NavigationManager"
 
 local function uiText(key, fallback)
     local value = getText(key)

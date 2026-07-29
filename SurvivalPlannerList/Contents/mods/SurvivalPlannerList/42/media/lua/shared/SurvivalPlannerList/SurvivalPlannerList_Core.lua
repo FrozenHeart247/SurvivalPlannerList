@@ -2,7 +2,7 @@ SurvivalPlannerList = SurvivalPlannerList or {}
 
 SurvivalPlannerList.ID = "SurvivalPlannerList"
 SurvivalPlannerList.ITEM_TYPE = "SurvivalPlannerList.SurvivalPlanner"
-SurvivalPlannerList.DATA_VERSION = 2
+SurvivalPlannerList.DATA_VERSION = 3
 SurvivalPlannerList.DEFAULT_ICON = "Base.Notebook"
 SurvivalPlannerList.STATUS_ACTIVE = "active"
 SurvivalPlannerList.STATUS_PLANNED = "planned"
@@ -42,6 +42,15 @@ local function safeNow()
         end
     end
     return 0
+end
+
+local plannerIdCounter = 0
+
+local function newPlannerId()
+    plannerIdCounter = plannerIdCounter + 1
+    local stamp = getTimestampMs and getTimestampMs() or math.floor(safeNow() * 3600000)
+    local randomPart = ZombRand and ZombRand(1000000) or math.random(0, 999999)
+    return tostring(stamp) .. "-" .. tostring(randomPart) .. "-" .. tostring(plannerIdCounter)
 end
 
 local function inventoryItems(container)
@@ -249,6 +258,72 @@ function SurvivalPlannerList.copyGoals(rawGoals)
     return normalizeGoals(rawGoals)
 end
 
+local function normalizeMapTarget(data, raw)
+    if type(raw) ~= "table" then
+        return nil
+    end
+
+    local x = tonumber(raw.x)
+    local y = tonumber(raw.y)
+    if not x or not y or x ~= x or y ~= y then
+        return nil
+    end
+
+    local id = tonumber(raw.id)
+    if not id or id < 1 then
+        id = nextId(data)
+    elseif id >= (tonumber(data.nextId) or 1) then
+        data.nextId = id + 1
+    end
+
+    return {
+        id = id,
+        name = trim(raw.name),
+        x = x,
+        y = y,
+        z = math.floor(tonumber(raw.z) or 0),
+        radius = math.max(1, math.min(500, tonumber(raw.radius) or 15)),
+    }
+end
+
+local function normalizeMapTargets(data, rawTargets, legacyTarget)
+    local targets = {}
+    local source = rawTargets
+    if type(source) ~= "table" or #source == 0 then
+        source = type(legacyTarget) == "table" and {legacyTarget} or {}
+    end
+
+    local seenIds = {}
+    for _, rawTarget in ipairs(source) do
+        local target = normalizeMapTarget(data, rawTarget)
+        if target and not seenIds[target.id] then
+            seenIds[target.id] = true
+            table.insert(targets, target)
+        end
+    end
+    return targets
+end
+
+function SurvivalPlannerList.copyMapTargets(rawTargets)
+    local targets = {}
+    if type(rawTargets) ~= "table" then
+        return targets
+    end
+    for _, raw in ipairs(rawTargets) do
+        if type(raw) == "table" and tonumber(raw.x) and tonumber(raw.y) then
+            table.insert(targets, {
+                id = tonumber(raw.id),
+                name = trim(raw.name),
+                x = tonumber(raw.x),
+                y = tonumber(raw.y),
+                z = math.floor(tonumber(raw.z) or 0),
+                radius = math.max(1, math.min(500, tonumber(raw.radius) or 15)),
+            })
+        end
+    end
+    return targets
+end
+
 function SurvivalPlannerList.areGoalsMet(goals, counts)
     if type(goals) ~= "table" or #goals == 0 then
         return true
@@ -322,8 +397,25 @@ local function normalizeTask(data, raw)
         completedBy = trim(raw.completedBy) ~= "" and trim(raw.completedBy) or nil,
         autoComplete = raw.autoComplete == true,
         goals = normalizeGoals(raw.goals),
+        mapTargets = normalizeMapTargets(data, raw.mapTargets, raw.mapTarget),
+        trackedTargetId = tonumber(raw.trackedTargetId),
+        navigationEnabled = raw.navigationEnabled == true,
         subtasks = {},
     }
+
+    local trackedTargetFound = false
+    for _, target in ipairs(task.mapTargets) do
+        if tonumber(target.id) == task.trackedTargetId then
+            trackedTargetFound = true
+            break
+        end
+    end
+    if not trackedTargetFound then
+        task.trackedTargetId = task.mapTargets[1] and task.mapTargets[1].id or nil
+    end
+    if task.status == SurvivalPlannerList.STATUS_DONE or not task.trackedTargetId then
+        task.navigationEnabled = false
+    end
 
     if #task.goals == 0 and trim(raw.targetType) ~= "" then
         table.insert(task.goals, normalizeGoal({
@@ -373,6 +465,10 @@ local function normalizeData(data)
 
     data.version = SurvivalPlannerList.DATA_VERSION
     data.nextId = math.max(1, tonumber(data.nextId) or 1)
+    data.plannerId = trim(data.plannerId)
+    if data.plannerId == "" then
+        data.plannerId = newPlannerId()
+    end
 
     local tasks = {}
     if type(data.tasks) == "table" then
@@ -442,6 +538,35 @@ function SurvivalPlannerList.findTask(data, taskId)
     return nil, nil
 end
 
+function SurvivalPlannerList.getPlannerKey(planner)
+    local data = SurvivalPlannerList.getData(planner)
+    return data and data.plannerId or nil
+end
+
+function SurvivalPlannerList.getTaskMapTarget(task)
+    if type(task) ~= "table" or type(task.mapTargets) ~= "table" then
+        return nil
+    end
+
+    local trackedTargetId = tonumber(task.trackedTargetId)
+    for _, target in ipairs(task.mapTargets) do
+        if tonumber(target.id) == trackedTargetId then
+            return target
+        end
+    end
+    return task.mapTargets[1]
+end
+
+function SurvivalPlannerList.moveTaskToFront(data, taskId)
+    local task, index = SurvivalPlannerList.findTask(data, taskId)
+    if not task or not index or index == 1 then
+        return task ~= nil
+    end
+    table.remove(data.tasks, index)
+    table.insert(data.tasks, 1, task)
+    return true
+end
+
 function SurvivalPlannerList.addTask(planner, values)
     local data = SurvivalPlannerList.getData(planner)
     if not data or type(values) ~= "table" then
@@ -461,12 +586,28 @@ function SurvivalPlannerList.addTask(planner, values)
             or SurvivalPlannerList.STATUS_ACTIVE,
         iconType = trim(values.iconType) ~= "" and trim(values.iconType) or SurvivalPlannerList.DEFAULT_ICON,
         goals = normalizeGoals(values.goals),
+        mapTargets = normalizeMapTargets(data, values.mapTargets, values.mapTarget),
+        trackedTargetId = tonumber(values.trackedTargetId),
+        navigationEnabled = values.navigationEnabled == true,
         autoComplete = values.autoComplete == true,
         createdAt = safeNow(),
         completedAt = nil,
         subtasks = {},
     }
-    table.insert(data.tasks, task)
+    if #task.mapTargets > 0 then
+        local trackedTargetFound = false
+        for _, target in ipairs(task.mapTargets) do
+            if tonumber(target.id) == task.trackedTargetId then
+                trackedTargetFound = true
+                break
+            end
+        end
+        task.trackedTargetId = trackedTargetFound and task.trackedTargetId or task.mapTargets[1].id
+    else
+        task.trackedTargetId = nil
+        task.navigationEnabled = false
+    end
+    table.insert(data.tasks, 1, task)
     SurvivalPlannerList.save(planner)
     return task
 end
@@ -486,6 +627,21 @@ function SurvivalPlannerList.updateTask(planner, taskId, values)
     task.title = title
     task.iconType = trim(values.iconType) ~= "" and trim(values.iconType) or SurvivalPlannerList.DEFAULT_ICON
     task.goals = normalizeGoals(values.goals)
+    task.mapTargets = normalizeMapTargets(data, values.mapTargets, values.mapTarget)
+    task.trackedTargetId = tonumber(values.trackedTargetId)
+    local trackedTargetFound = false
+    for _, target in ipairs(task.mapTargets) do
+        if tonumber(target.id) == task.trackedTargetId then
+            trackedTargetFound = true
+            break
+        end
+    end
+    task.trackedTargetId = trackedTargetFound
+        and task.trackedTargetId
+        or (task.mapTargets[1] and task.mapTargets[1].id or nil)
+    task.navigationEnabled = values.navigationEnabled == true
+        and task.status ~= SurvivalPlannerList.STATUS_DONE
+        and task.trackedTargetId ~= nil
     task.autoComplete = values.autoComplete == true
     return SurvivalPlannerList.save(planner)
 end
@@ -515,6 +671,21 @@ function SurvivalPlannerList.setTaskStatus(planner, taskId, status)
     task.status = status
     task.completedAt = status == SurvivalPlannerList.STATUS_DONE and safeNow() or nil
     task.completedBy = status == SurvivalPlannerList.STATUS_DONE and "manual" or nil
+    if status == SurvivalPlannerList.STATUS_DONE then
+        task.navigationEnabled = false
+        SurvivalPlannerList.moveTaskToFront(data, task.id)
+    end
+    return SurvivalPlannerList.save(planner)
+end
+
+function SurvivalPlannerList.setTaskNavigation(planner, taskId, enabled)
+    local data = SurvivalPlannerList.getData(planner)
+    local task = data and SurvivalPlannerList.findTask(data, taskId) or nil
+    local target = task and SurvivalPlannerList.getTaskMapTarget(task) or nil
+    if not task or task.status == SurvivalPlannerList.STATUS_DONE or not target then
+        return false
+    end
+    task.navigationEnabled = enabled == true
     return SurvivalPlannerList.save(planner)
 end
 
@@ -852,6 +1023,43 @@ function SurvivalPlannerList.getTrackedTargetsForPlayer(player)
         at = now,
         targets = targets,
     }
+    return targets
+end
+
+function SurvivalPlannerList.collectNavigationTargets(player)
+    local targets = {}
+    if not player then
+        return targets
+    end
+
+    SurvivalPlannerList.visitPlayerInventory(player, function(item)
+        if not SurvivalPlannerList.isPlanner(item) then
+            return nil
+        end
+
+        local data = SurvivalPlannerList.getData(item)
+        if not data then
+            return nil
+        end
+
+        for _, task in ipairs(data.tasks or {}) do
+            local target = SurvivalPlannerList.getTaskMapTarget(task)
+            if task.navigationEnabled == true
+                and task.status ~= SurvivalPlannerList.STATUS_DONE
+                and target then
+                table.insert(targets, {
+                    key = tostring(data.plannerId) .. ":" .. tostring(task.id),
+                    plannerId = data.plannerId,
+                    planner = item,
+                    taskId = task.id,
+                    task = task,
+                    target = target,
+                })
+            end
+        end
+        return nil
+    end)
+
     return targets
 end
 
