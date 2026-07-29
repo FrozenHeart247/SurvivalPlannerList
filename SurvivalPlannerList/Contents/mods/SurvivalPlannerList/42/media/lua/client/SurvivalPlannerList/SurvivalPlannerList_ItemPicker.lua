@@ -3,6 +3,7 @@ require "ISUI/ISButton"
 require "ISUI/ISTextEntryBox"
 require "ISUI/ISScrollingListBox"
 require "SurvivalPlannerList/SurvivalPlannerList_Core"
+require "SurvivalPlannerList/SurvivalPlannerList_Themes"
 require "SurvivalPlannerList/SurvivalPlannerList_StyledScrollBar"
 
 SPLItemPicker = ISPanel:derive("SPLItemPicker")
@@ -22,15 +23,23 @@ local function uiText(key, fallback)
 end
 
 local function styleButton(button, primary)
-    button.textColor = {r = 0.92, g = 0.88, b = 0.76, a = 1}
+    local theme = button.target.theme
     if primary then
-        button.backgroundColor = {r = 0.16, g = 0.25, b = 0.105, a = 1}
-        button.backgroundColorMouseOver = {r = 0.29, g = 0.43, b = 0.16, a = 1}
-        button.borderColor = {r = 0.42, g = 0.57, b = 0.25, a = 1}
+        SPLThemes.styleButton(
+            button,
+            theme.accent,
+            theme.accentHover,
+            theme.panelBorder,
+            theme.tabActiveText
+        )
     else
-        button.backgroundColor = {r = 0.18, g = 0.16, b = 0.12, a = 1}
-        button.backgroundColorMouseOver = {r = 0.30, g = 0.25, b = 0.16, a = 1}
-        button.borderColor = {r = 0.40, g = 0.36, b = 0.28, a = 1}
+        SPLThemes.styleButton(
+            button,
+            theme.button,
+            theme.buttonHover,
+            theme.buttonBorder,
+            theme.buttonText
+        )
     end
 end
 
@@ -57,7 +66,11 @@ function SPLItemPicker:createChildren()
     self.search:initialise()
     self.search:instantiate()
     self.search:setClearButton(true)
-    self.search.tooltip = uiText("SPL_Tooltip_SearchItems", "Search by item name or full type")
+    self.search.backgroundColor = SPLThemes.copyColor(self.theme.input)
+    self.search.borderColor = SPLThemes.copyColor(self.theme.inputBorder)
+    self.search.tooltip = self.catalogMode == "icons"
+        and uiText("SPL_Tooltip_SearchIcons", "Search task icons and item icons")
+        or uiText("SPL_Tooltip_SearchItems", "Search by item name or full type")
     self:addChild(self.search)
 
     local listY = self.search:getBottom() + 8
@@ -66,9 +79,10 @@ function SPLItemPicker:createChildren()
     self.list:initialise()
     self.list:instantiate()
     self.list.itemheight = ROW_HEIGHT
-    self.list.backgroundColor = {r = 0.09, g = 0.085, b = 0.07, a = 0.96}
-    self.list.borderColor = {r = 0.38, g = 0.34, b = 0.27, a = 1}
-    self.list.selectionColor = {r = 0.28, g = 0.34, b = 0.20, a = 0.85}
+    self.list.theme = self.theme
+    self.list.backgroundColor = SPLThemes.copyColor(self.theme.list)
+    self.list.borderColor = SPLThemes.copyColor(self.theme.listBorder)
+    self.list.selectionColor = SPLThemes.copyColor(self.theme.cardSelected)
     self.list.doDrawItem = SPLItemPicker.drawCatalogItem
     self.list:setOnMouseDoubleClick(self, SPLItemPicker.acceptSelection)
     self:addChild(self.list)
@@ -119,10 +133,19 @@ function SPLItemPicker:refreshCatalog(force)
 
     self.list:clear()
     local selectedIndex = nil
-    for _, entry in ipairs(SurvivalPlannerList.getItemCatalog()) do
+    local catalog = self.catalogMode == "icons"
+        and SurvivalPlannerList.getIconCatalog()
+        or SurvivalPlannerList.getItemCatalog()
+    for _, entry in ipairs(catalog) do
         local name = string.lower(entry.name or "")
         local fullType = string.lower(entry.fullType or "")
-        if query == "" or string.find(name, query, 1, true) or string.find(fullType, query, 1, true) then
+        local category = entry.isCustomIcon
+            and string.lower(uiText("SPL_Category_PlannerIcon", "Planner icon"))
+            or ""
+        if query == ""
+            or string.find(name, query, 1, true)
+            or string.find(fullType, query, 1, true)
+            or string.find(category, query, 1, true) then
             self.list:addItem(entry.name, entry)
             if entry.fullType == (selectedType or self.initialType) then
                 selectedIndex = #self.list.items
@@ -132,13 +155,17 @@ function SPLItemPicker:refreshCatalog(force)
 
     if selectedIndex then
         self.list.selected = selectedIndex
-        self.list:ensureVisible(selectedIndex)
+        if force and self.catalogMode == "icons" then
+            self.list:setYScroll(0)
+        else
+            self.list:ensureVisible(selectedIndex)
+        end
     elseif #self.list.items > 0 then
         self.list.selected = 1
     else
         self.list.selected = -1
     end
-    self.chooseButton:setEnable(#self.list.items > 0)
+    SPLThemes.setButtonEnabled(self.chooseButton, #self.list.items > 0)
 end
 
 function SPLItemPicker:update()
@@ -147,26 +174,33 @@ function SPLItemPicker:update()
 end
 
 function SPLItemPicker:drawCatalogItem(y, row, alt)
+    local theme = self.theme
     local height = row.height or ROW_HEIGHT
     local contentWidth = self.width - SCROLLBAR_GUTTER
     if self.selected == row.index then
-        self:drawRect(1, y + 1, contentWidth - 2, height - 2, 0.82, 0.24, 0.31, 0.17)
+        self:drawRect(1, y + 1, contentWidth - 2, height - 2, 0.82, theme.cardSelected.r, theme.cardSelected.g, theme.cardSelected.b)
     elseif self.mouseoverselected == row.index and self:isMouseOver() then
-        self:drawRect(1, y + 1, contentWidth - 2, height - 2, 0.42, 0.22, 0.20, 0.14)
+        self:drawRect(1, y + 1, contentWidth - 2, height - 2, 0.68, theme.cardHover.r, theme.cardHover.g, theme.cardHover.b)
     elseif alt then
-        self:drawRect(1, y + 1, contentWidth - 2, height - 2, 0.32, 0.13, 0.12, 0.10)
+        self:drawRect(1, y + 1, contentWidth - 2, height - 2, 0.38, theme.card.r, theme.card.g, theme.card.b)
     end
 
     local entry = row.item
+    if entry.isCustomIcon then
+        self:drawRect(1, y + 1, 4, height - 2, 1, theme.accent.r, theme.accent.g, theme.accent.b)
+    end
     if entry.texture then
         self:drawTextureScaledAspect(entry.texture, 8, y + 5, 38, 38, 1, 1, 1, 1)
     end
     local textWidth = contentWidth - 62
     local itemName = getTextManager():WrapText(UIFont.Small, entry.name or entry.fullType, textWidth, 1, "...")
-    local fullType = getTextManager():WrapText(UIFont.Small, entry.fullType or "", textWidth, 1, "...")
-    self:drawText(itemName, 54, y + 7, 0.93, 0.90, 0.78, 1, UIFont.Small)
-    self:drawText(fullType, 54, y + 27, 0.57, 0.55, 0.48, 1, UIFont.Small)
-    self:drawRectBorder(0, y, contentWidth, height, 0.55, 0.35, 0.32, 0.27)
+    local details = entry.isCustomIcon
+        and uiText("SPL_Category_PlannerIcon", "Planner icon")
+        or (entry.fullType or "")
+    local fullType = getTextManager():WrapText(UIFont.Small, details, textWidth, 1, "...")
+    self:drawText(itemName, 54, y + 7, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
+    self:drawText(fullType, 54, y + 27, theme.mutedText.r, theme.mutedText.g, theme.mutedText.b, 1, UIFont.Small)
+    self:drawRectBorder(0, y, contentWidth, height, 0.55, theme.cardBorder.r, theme.cardBorder.g, theme.cardBorder.b)
     return y + height
 end
 
@@ -204,13 +238,14 @@ function SPLItemPicker:close()
 end
 
 function SPLItemPicker:prerender()
-    self:drawRect(0, 0, self.width, self.height, 0.97, 0.115, 0.105, 0.085)
-    self:drawRect(0, 0, self.width, 42, 1, 0.22, 0.20, 0.15)
-    self:drawRectBorder(0, 0, self.width, self.height, 1, 0.46, 0.41, 0.31)
-    self:drawTextCentre(self.titleText, self.width / 2, 10, 0.93, 0.90, 0.78, 1, UIFont.Medium)
+    local theme = self.theme
+    self:drawRect(0, 0, self.width, self.height, theme.panel.a or 0.97, theme.panel.r, theme.panel.g, theme.panel.b)
+    self:drawRect(0, 0, self.width, 42, 1, theme.header.r, theme.header.g, theme.header.b)
+    self:drawRectBorder(0, 0, self.width, self.height, 1, theme.panelBorder.r, theme.panelBorder.g, theme.panelBorder.b)
+    self:drawTextCentre(self.titleText, self.width / 2, 10, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
 end
 
-function SPLItemPicker:new(playerNum, titleText, initialType, pickTarget, onPick, pickPurpose)
+function SPLItemPicker:new(playerNum, titleText, initialType, pickTarget, onPick, pickPurpose, catalogMode)
     local screenWidth = getCore():getScreenWidth()
     local screenHeight = getCore():getScreenHeight()
     local width = math.min(640, screenWidth - 80)
@@ -219,19 +254,29 @@ function SPLItemPicker:new(playerNum, titleText, initialType, pickTarget, onPick
     local y = (screenHeight - height) / 2
     local o = ISPanel.new(self, x, y, width, height)
     o.playerNum = playerNum or 0
+    o.theme = SPLThemes.get(o.playerNum)
     o.titleText = titleText or uiText("SPL_Title_ItemPicker", "Choose an item")
     o.initialType = initialType
     o.pickTarget = pickTarget
     o.onPick = onPick
     o.pickPurpose = pickPurpose
-    o.backgroundColor = {r = 0.115, g = 0.105, b = 0.085, a = 0.97}
-    o.borderColor = {r = 0.46, g = 0.41, b = 0.31, a = 1}
+    o.catalogMode = catalogMode or "items"
+    o.backgroundColor = SPLThemes.copyColor(o.theme.panel)
+    o.borderColor = SPLThemes.copyColor(o.theme.panelBorder)
     o.moveWithMouse = true
     return o
 end
 
-function SPLItemPicker.open(playerNum, titleText, initialType, pickTarget, onPick, pickPurpose)
-    local picker = SPLItemPicker:new(playerNum, titleText, initialType, pickTarget, onPick, pickPurpose)
+function SPLItemPicker.open(playerNum, titleText, initialType, pickTarget, onPick, pickPurpose, catalogMode)
+    local picker = SPLItemPicker:new(
+        playerNum,
+        titleText,
+        initialType,
+        pickTarget,
+        onPick,
+        pickPurpose,
+        catalogMode
+    )
     picker:initialise()
     picker:addToUIManager()
     picker:bringToTop()

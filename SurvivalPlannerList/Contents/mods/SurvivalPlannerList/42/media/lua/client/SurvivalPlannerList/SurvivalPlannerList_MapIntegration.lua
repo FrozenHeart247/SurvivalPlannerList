@@ -1,5 +1,6 @@
 require "ISUI/Maps/ISWorldMap"
 require "SurvivalPlannerList/SurvivalPlannerList_Core"
+require "SurvivalPlannerList/SurvivalPlannerList_Themes"
 
 SPLMapIntegration = SPLMapIntegration or {}
 SPLMapIntegration.targetsByPlayer = SPLMapIntegration.targetsByPlayer or {}
@@ -71,6 +72,7 @@ local function markerAt(worldMap, x, y)
 end
 
 local function drawTooltip(worldMap, navigation, markerX, markerY)
+    local theme = SPLThemes.get(worldMap.playerNum or 0)
     local title = navigation.task.title or uiText("SPL_Map_Target", "Map target")
     local maxTextWidth = 270
     local wrapped = getTextManager():WrapText(UIFont.Small, title, maxTextWidth, 2, "...")
@@ -84,10 +86,10 @@ local function drawTooltip(worldMap, navigation, markerX, markerY)
     end
     tooltipY = math.max(8, math.min(tooltipY, worldMap.height - tooltipHeight - 8))
 
-    worldMap:drawRect(tooltipX, tooltipY, tooltipWidth, tooltipHeight, 0.95, 0.075, 0.07, 0.055)
-    worldMap:drawRect(tooltipX, tooltipY, 4, tooltipHeight, 1, 0.50, 0.61, 0.31)
-    worldMap:drawRectBorder(tooltipX, tooltipY, tooltipWidth, tooltipHeight, 1, 0.42, 0.49, 0.29)
-    worldMap:drawText(wrapped, tooltipX + 12, tooltipY + 8, 0.94, 0.91, 0.79, 1, UIFont.Small)
+    worldMap:drawRect(tooltipX, tooltipY, tooltipWidth, tooltipHeight, 0.95, theme.dialog.r, theme.dialog.g, theme.dialog.b)
+    worldMap:drawRect(tooltipX, tooltipY, 4, tooltipHeight, 1, theme.accent.r, theme.accent.g, theme.accent.b)
+    worldMap:drawRectBorder(tooltipX, tooltipY, tooltipWidth, tooltipHeight, 1, theme.dialogBorder.r, theme.dialogBorder.g, theme.dialogBorder.b)
+    worldMap:drawText(wrapped, tooltipX + 12, tooltipY + 8, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
 end
 
 function SPLMapIntegration.setTargets(playerNum, targets)
@@ -113,6 +115,35 @@ end
 
 function SPLMapIntegration.isWorldMapVisible()
     return ISWorldMap_instance ~= nil and ISWorldMap_instance:isVisible()
+end
+
+function SPLMapIntegration.hideScreenWidgets(playerNum)
+    local index = (playerNum or 0) + 1
+    if SPLQuickButton and SPLQuickButton.instances then
+        local quickButton = SPLQuickButton.instances[index]
+        if quickButton then
+            quickButton:setVisible(false)
+        end
+    end
+    if SPLNavigationManager and SPLNavigationManager.widgetsByPlayer then
+        for _, widget in pairs(SPLNavigationManager.widgetsByPlayer[index] or {}) do
+            widget:setVisible(false)
+        end
+    end
+end
+
+function SPLMapIntegration.restoreScreenWidgets(playerNum)
+    local index = (playerNum or 0) + 1
+    if SPLQuickButton and SPLQuickButton.instances then
+        local quickButton = SPLQuickButton.instances[index]
+        if quickButton then
+            quickButton:setVisible(true)
+            quickButton:bringToTop()
+        end
+    end
+    if SPLNavigationManager and SPLNavigationManager.syncPlayer then
+        SPLNavigationManager.syncPlayer(playerNum or 0, true)
+    end
 end
 
 function SPLMapIntegration.beginPlacement(playerNum, currentTarget, callback)
@@ -173,8 +204,10 @@ if not ISWorldMap._SPLMapIntegrationWrapped then
     ISWorldMap._SPLMapIntegrationWrapped = true
 
     function ISWorldMap:render()
+        SPLMapIntegration.hideScreenWidgets(self.playerNum or 0)
         originalRender(self)
 
+        local theme = SPLThemes.get(self.playerNum or 0)
         local mouseX = self:getMouseX()
         local mouseY = self:getMouseY()
         local hovered = markerAt(self, mouseX, mouseY)
@@ -204,21 +237,21 @@ if not ISWorldMap._SPLMapIntegrationWrapped then
         if pending and pending.playerNum == (self.playerNum or 0) then
             local bannerWidth = math.min(520, self.width - 40)
             local bannerX = math.floor((self.width - bannerWidth) / 2)
-            self:drawRect(bannerX, 18, bannerWidth, 48, 0.96, 0.075, 0.07, 0.055)
-            self:drawRect(bannerX, 18, 5, 48, 1, 0.50, 0.61, 0.31)
-            self:drawRectBorder(bannerX, 18, bannerWidth, 48, 1, 0.43, 0.50, 0.29)
+            self:drawRect(bannerX, 18, bannerWidth, 48, 0.96, theme.dialog.r, theme.dialog.g, theme.dialog.b)
+            self:drawRect(bannerX, 18, 5, 48, 1, theme.accent.r, theme.accent.g, theme.accent.b)
+            self:drawRectBorder(bannerX, 18, bannerWidth, 48, 1, theme.dialogBorder.r, theme.dialogBorder.g, theme.dialogBorder.b)
             self:drawTextCentre(
                 uiText("SPL_Map_PlaceHint", "Click the map to set the target. Drag to pan; Esc cancels."),
                 self.width / 2,
                 33,
-                0.94,
-                0.91,
-                0.79,
+                theme.text.r,
+                theme.text.g,
+                theme.text.b,
                 1,
                 UIFont.Small
             )
-            self:drawRect(mouseX - 10, mouseY - 1, 21, 3, 1, 0.67, 0.78, 0.39)
-            self:drawRect(mouseX - 1, mouseY - 10, 3, 21, 1, 0.67, 0.78, 0.39)
+            self:drawRect(mouseX - 10, mouseY - 1, 21, 3, 1, theme.accentHover.r, theme.accentHover.g, theme.accentHover.b)
+            self:drawRect(mouseX - 1, mouseY - 10, 3, 21, 1, theme.accentHover.r, theme.accentHover.g, theme.accentHover.b)
         end
     end
 
@@ -268,12 +301,15 @@ if not ISWorldMap._SPLMapIntegrationWrapped then
                 self.symbolsUI:setVisible(pending.symbolsWereVisible == true)
             end
             originalClose(self)
+            SPLMapIntegration.restoreScreenWidgets(self.playerNum or 0)
             if callback then
                 callback(nil)
             end
             return
         end
-        return originalClose(self)
+        local result = originalClose(self)
+        SPLMapIntegration.restoreScreenWidgets(self.playerNum or 0)
+        return result
     end
 end
 

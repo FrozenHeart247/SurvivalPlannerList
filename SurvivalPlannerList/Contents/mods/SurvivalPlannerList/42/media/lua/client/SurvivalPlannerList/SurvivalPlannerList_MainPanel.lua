@@ -2,6 +2,7 @@ require "ISUI/ISPanel"
 require "ISUI/ISScrollingListBox"
 require "ISUI/ISButton"
 require "SurvivalPlannerList/SurvivalPlannerList_Core"
+require "SurvivalPlannerList/SurvivalPlannerList_Themes"
 require "SurvivalPlannerList/SurvivalPlannerList_StyledScrollBar"
 require "SurvivalPlannerList/SurvivalPlannerList_ItemPicker"
 require "SurvivalPlannerList/SurvivalPlannerList_TaskEditor"
@@ -10,8 +11,11 @@ require "SurvivalPlannerList/SurvivalPlannerList_Automation"
 
 SPLPlannerList = ISScrollingListBox:derive("SPLPlannerList")
 SPLConfirmDialog = ISPanel:derive("SPLConfirmDialog")
+SPLThemeRow = ISButton:derive("SPLThemeRow")
+SPLThemeMenu = ISPanel:derive("SPLThemeMenu")
 SPLMainPanel = ISPanel:derive("SPLMainPanel")
 SPLMainPanel.instances = SPLMainPanel.instances or {}
+SPLMainPanel.savedPositions = SPLMainPanel.savedPositions or {}
 
 local PAD = 12
 local BUTTON_HEIGHT = 28
@@ -24,6 +28,7 @@ local TASK_MIN_HEADER_HEIGHT = 64
 local GOAL_HEIGHT = 22
 local SUBTASK_BASE_HEIGHT = 28
 local SUBTASK_GOAL_HEIGHT = 20
+local SUBTASK_SEPARATOR_HEIGHT = 10
 local TRACKING_HEIGHT = 68
 local CHECKBOX_SIZE = 14
 local SCROLLBAR_GUTTER = 18
@@ -31,6 +36,11 @@ local DRAG_THRESHOLD = 5
 local FONT_HEIGHT_SMALL = getTextManager():getFontHeight(UIFont.Small)
 local DIALOG_BUTTON_WIDTH = 132
 local DIALOG_BUTTON_HEIGHT = 30
+local PANEL_LAYOUT_KEY = "SurvivalPlannerListPanelLayout"
+local THEME_BUTTON_SIZE = 26
+local THEME_MENU_WIDTH = 224
+local THEME_ROW_HEIGHT = 34
+local THEME_ROW_GAP = 4
 
 local TAB_ORDER = {
     SurvivalPlannerList.STATUS_ACTIVE,
@@ -47,6 +57,64 @@ local function uiText(key, fallback)
     return value
 end
 
+local function copyColor(source, alpha)
+    return SPLThemes.copyColor(source, alpha)
+end
+
+local function styleButton(button, background, hover, border, text)
+    SPLThemes.styleButton(button, background, hover, border, text)
+end
+
+local function clampUnit(value)
+    return math.max(0, math.min(1, tonumber(value) or 0.5))
+end
+
+local function savePanelPosition(panel)
+    local screenWidth = getCore():getScreenWidth()
+    local screenHeight = getCore():getScreenHeight()
+    local availableWidth = math.max(1, screenWidth - panel.width)
+    local availableHeight = math.max(1, screenHeight - panel.height)
+    local position = {
+        nx = clampUnit(panel.x / availableWidth),
+        ny = clampUnit(panel.y / availableHeight),
+    }
+    local index = panel.playerNum + 1
+    SPLMainPanel.savedPositions[index] = position
+
+    local player = getSpecificPlayer(panel.playerNum)
+    if player and player.getModData then
+        player:getModData()[PANEL_LAYOUT_KEY] = {
+            nx = position.nx,
+            ny = position.ny,
+        }
+    end
+end
+
+local function restorePanelPosition(panel)
+    local index = panel.playerNum + 1
+    local position = SPLMainPanel.savedPositions[index]
+    local player = getSpecificPlayer(panel.playerNum)
+    if not position and player and player.getModData then
+        local stored = player:getModData()[PANEL_LAYOUT_KEY]
+        if type(stored) == "table" then
+            position = {
+                nx = clampUnit(stored.nx),
+                ny = clampUnit(stored.ny),
+            }
+        end
+    end
+    if not position then
+        return
+    end
+
+    local screenWidth = getCore():getScreenWidth()
+    local screenHeight = getCore():getScreenHeight()
+    local availableWidth = math.max(0, screenWidth - panel.width)
+    local availableHeight = math.max(0, screenHeight - panel.height)
+    panel:setX(math.floor(clampUnit(position.nx) * availableWidth))
+    panel:setY(math.floor(clampUnit(position.ny) * availableHeight))
+end
+
 local function taskStatusText(status)
     if status == SurvivalPlannerList.STATUS_ACTIVE then
         return uiText("SPL_Tab_Active", "Active")
@@ -60,7 +128,7 @@ end
 
 local function calculateTaskLayout(task, listWidth)
     local cardWidth = listWidth - SCROLLBAR_GUTTER - CARD_SIDE_PAD * 2
-    local titleMaxWidth = math.max(120, cardWidth - 72 - 20)
+    local titleMaxWidth = math.max(120, cardWidth - 72 - 52)
     local titleText = getTextManager():WrapText(UIFont.Medium, task.title or "", titleMaxWidth)
     local titleHeight = getTextManager():MeasureStringY(UIFont.Medium, titleText)
     local headerHeight = 8 + titleHeight + 10
@@ -76,6 +144,7 @@ local function calculateSubtaskHeight(subtask)
 end
 
 local function drawGoalLine(list, goal, x, y, maxWidth, iconSize, counts, muted, showProgress)
+    local theme = list.ownerPanel and list.ownerPanel.theme or SPLThemes.get(0)
     local current = tonumber(counts and counts[goal.fullType]) or 0
     local required = tonumber(goal.quantity) or 1
     local complete = current >= required
@@ -90,17 +159,18 @@ local function drawGoalLine(list, goal, x, y, maxWidth, iconSize, counts, muted,
     local progressWidth = getTextManager():MeasureStringX(UIFont.Small, progressText)
     local nameWidth = math.max(40, maxWidth - iconSize - 9 - progressWidth - 12)
     local goalName = getTextManager():WrapText(UIFont.Small, goal.name or goal.fullType, nameWidth, 1, "...")
-    local r, g, b = 0.73, 0.70, 0.55
+    local color = theme.mutedText
     if complete then
-        r, g, b = 0.52, 0.66, 0.36
+        color = theme.success
     elseif muted then
-        r, g, b = 0.55, 0.53, 0.46
+        color = theme.subtleText
     end
-    list:drawText(goalName, x + iconSize + 7, y, r, g, b, 1, UIFont.Small)
-    list:drawTextRight(progressText, x + maxWidth, y, r, g, b, 1, UIFont.Small)
+    list:drawText(goalName, x + iconSize + 7, y, color.r, color.g, color.b, 1, UIFont.Small)
+    list:drawTextRight(progressText, x + maxWidth, y, color.r, color.g, color.b, 1, UIFont.Small)
 end
 
 function SPLPlannerList:doDrawItem(y, row, alt)
+    local theme = self.ownerPanel and self.ownerPanel.theme or SPLThemes.get(0)
     local height = row.height or (TASK_MIN_HEADER_HEIGHT + CARD_GAP)
     local data = row.item
     local cardX = CARD_SIDE_PAD
@@ -110,47 +180,47 @@ function SPLPlannerList:doDrawItem(y, row, alt)
     local selected = self.selected == row.index
     local hovered = self.mouseoverselected == row.index and self:isMouseOver()
 
-    local bgR, bgG, bgB = 0.115, 0.11, 0.09
-    local borderR, borderG, borderB = 0.31, 0.29, 0.24
+    local background = theme.card
+    local border = theme.cardBorder
     if selected then
-        bgR, bgG, bgB = 0.17, 0.19, 0.13
-        borderR, borderG, borderB = 0.42, 0.52, 0.31
+        background = theme.cardSelected
+        border = theme.cardSelectedBorder
     elseif hovered then
-        bgR, bgG, bgB = 0.145, 0.135, 0.105
-        borderR, borderG, borderB = 0.39, 0.36, 0.28
+        background = theme.cardHover
+        border = theme.cardHoverBorder
     end
-    self:drawRect(cardX, cardY, cardWidth, cardHeight, 0.98, bgR, bgG, bgB)
+    self:drawRect(cardX, cardY, cardWidth, cardHeight, background.a or 0.98, background.r, background.g, background.b)
 
     if data.kind == "tracked" then
         local texture = SurvivalPlannerList.getItemTexture(data.fullType)
-        self:drawRect(cardX, cardY, 4, cardHeight, 1, 0.43, 0.60, 0.32)
+        self:drawRect(cardX, cardY, 4, cardHeight, 1, theme.accent.r, theme.accent.g, theme.accent.b)
         if texture then
             self:drawTextureScaledAspect(texture, cardX + 16, cardY + 9, 40, 40, 1, 1, 1, 1)
         end
-        self:drawText(data.name or data.fullType, cardX + 70, cardY + 9, 0.93, 0.90, 0.78, 1, UIFont.Medium)
-        self:drawText(data.fullType, cardX + 70, cardY + 34, 0.57, 0.55, 0.48, 1, UIFont.Small)
+        self:drawText(data.name or data.fullType, cardX + 70, cardY + 9, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
+        self:drawText(data.fullType, cardX + 70, cardY + 34, theme.mutedText.r, theme.mutedText.g, theme.mutedText.b, 1, UIFont.Small)
     else
         local task = data.task
-        local accentR, accentG, accentB = 0.43, 0.60, 0.32
+        local accent = theme.success
         if task.status == SurvivalPlannerList.STATUS_PLANNED then
-            accentR, accentG, accentB = 0.67, 0.52, 0.27
+            accent = theme.planned
         elseif task.status == SurvivalPlannerList.STATUS_DONE then
-            accentR, accentG, accentB = 0.44, 0.47, 0.42
+            accent = theme.done
         end
-        self:drawRect(cardX, cardY, 4, cardHeight, 1, accentR, accentG, accentB)
+        self:drawRect(cardX, cardY, 4, cardHeight, 1, accent.r, accent.g, accent.b)
 
         local texture = SurvivalPlannerList.getItemTexture(task.iconType)
         if texture then
             self:drawTextureScaledAspect(texture, cardX + 16, cardY + 11, 42, 42, 1, 1, 1, 1)
         else
-            self:drawRectBorder(cardX + 16, cardY + 11, 42, 42, 1, 0.45, 0.40, 0.31)
+            self:drawRectBorder(cardX + 16, cardY + 11, 42, 42, 1, theme.mutedText.r, theme.mutedText.g, theme.mutedText.b)
         end
 
         local textX = cardX + 72
         local titleText = row.titleText or task.title
         local titleHeight = row.titleHeight or getTextManager():MeasureStringY(UIFont.Medium, titleText)
         local headerHeight = row.headerHeight or TASK_MIN_HEADER_HEIGHT
-        self:drawText(titleText, textX, cardY + 8, 0.95, 0.91, 0.78, 1, UIFont.Medium)
+        self:drawText(titleText, textX, cardY + 8, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
 
         local goalY = cardY + 8 + titleHeight + 5
         local goalWidth = cardX + cardWidth - 16 - textX
@@ -171,13 +241,34 @@ function SPLPlannerList:doDrawItem(y, row, alt)
 
         local subY = cardY + headerHeight
         if #(task.subtasks or {}) > 0 then
-            self:drawRect(cardX + 16, subY - 5, cardWidth - 30, 1, 0.62, 0.29, 0.28, 0.23)
+            self:drawRect(
+                cardX + 16,
+                subY - 5,
+                cardWidth - 30,
+                1,
+                theme.divider.a or 0.78,
+                theme.divider.r,
+                theme.divider.g,
+                theme.divider.b
+            )
         end
-        for _, subtask in ipairs(task.subtasks or {}) do
+        for subtaskIndex, subtask in ipairs(task.subtasks or {}) do
+            if subtaskIndex > 1 then
+                local separatorY = subY + math.floor(SUBTASK_SEPARATOR_HEIGHT / 2)
+                self:drawRect(
+                    cardX + 20,
+                    separatorY,
+                    cardWidth - 40,
+                    1,
+                    theme.divider.a or 0.78,
+                    theme.divider.r,
+                    theme.divider.g,
+                    theme.divider.b
+                )
+                subY = subY + SUBTASK_SEPARATOR_HEIGHT
+            end
             local subtaskHeight = calculateSubtaskHeight(subtask)
-            local color = subtask.done
-                and {r = 0.47, g = 0.56, b = 0.38}
-                or {r = 0.82, g = 0.79, b = 0.68}
+            local color = subtask.done and theme.success or theme.text
             local checkboxX = cardX + 20
             local textY = subY + math.floor((SUBTASK_BASE_HEIGHT - FONT_HEIGHT_SMALL) / 2)
             local checkboxY = subY + math.floor((SUBTASK_BASE_HEIGHT - CHECKBOX_SIZE) / 2)
@@ -194,7 +285,16 @@ function SPLPlannerList:doDrawItem(y, row, alt)
                 "..."
             )
             self:drawText(subtaskTitle, checkboxX + 26, textY, color.r, color.g, color.b, 1, UIFont.Small)
-            self:drawTextRight("X", cardX + cardWidth - 18, textY, 0.72, 0.40, 0.35, 1, UIFont.Small)
+            self:drawTextRight(
+                "X",
+                cardX + cardWidth - 18,
+                textY,
+                theme.dangerHover.r,
+                theme.dangerHover.g,
+                theme.dangerHover.b,
+                1,
+                UIFont.Small
+            )
 
             local subGoalY = subY + SUBTASK_BASE_HEIGHT
             local subGoalX = checkboxX + 26
@@ -217,7 +317,7 @@ function SPLPlannerList:doDrawItem(y, row, alt)
         end
     end
 
-    self:drawRectBorder(cardX, cardY, cardWidth, cardHeight, 0.92, borderR, borderG, borderB)
+    self:drawRectBorder(cardX, cardY, cardWidth, cardHeight, border.a or 0.92, border.r, border.g, border.b)
     return y + height
 end
 
@@ -398,21 +498,22 @@ function SPLPlannerList:render()
         insertY = self:topOfItem(self.dropIndex)
     end
 
+    local theme = self.ownerPanel and self.ownerPanel.theme or SPLThemes.get(0)
     local lineX = CARD_SIDE_PAD + 5
     local lineWidth = self.width - SCROLLBAR_GUTTER - CARD_SIDE_PAD * 2 - 10
-    self:drawRect(lineX, insertY - 2, lineWidth, 4, 1, 0.67, 0.73, 0.39)
-    self:drawRect(lineX - 3, insertY - 4, 4, 8, 1, 0.67, 0.73, 0.39)
-    self:drawRect(lineX + lineWidth - 1, insertY - 4, 4, 8, 1, 0.67, 0.73, 0.39)
+    self:drawRect(lineX, insertY - 2, lineWidth, 4, 1, theme.accent.r, theme.accent.g, theme.accent.b)
+    self:drawRect(lineX - 3, insertY - 4, 4, 8, 1, theme.accent.r, theme.accent.g, theme.accent.b)
+    self:drawRect(lineX + lineWidth - 1, insertY - 4, 4, 8, 1, theme.accent.r, theme.accent.g, theme.accent.b)
 
     local ghostHeight = 44
     local ghostY = self:getMouseY() - ghostHeight / 2
     local ghostWidth = self.width - SCROLLBAR_GUTTER - CARD_SIDE_PAD * 2
     local task = self.dragRow.item.task
     local ghostTitle = getTextManager():WrapText(UIFont.Small, task.title or "", ghostWidth - 28, 1, "...")
-    self:drawRect(CARD_SIDE_PAD, ghostY, ghostWidth, ghostHeight, 0.82, 0.16, 0.18, 0.11)
-    self:drawRect(CARD_SIDE_PAD, ghostY, 4, ghostHeight, 1, 0.58, 0.68, 0.34)
-    self:drawRectBorder(CARD_SIDE_PAD, ghostY, ghostWidth, ghostHeight, 1, 0.58, 0.68, 0.34)
-    self:drawText(ghostTitle, CARD_SIDE_PAD + 16, ghostY + 12, 0.94, 0.91, 0.78, 1, UIFont.Small)
+    self:drawRect(CARD_SIDE_PAD, ghostY, ghostWidth, ghostHeight, 0.86, theme.cardSelected.r, theme.cardSelected.g, theme.cardSelected.b)
+    self:drawRect(CARD_SIDE_PAD, ghostY, 4, ghostHeight, 1, theme.accent.r, theme.accent.g, theme.accent.b)
+    self:drawRectBorder(CARD_SIDE_PAD, ghostY, ghostWidth, ghostHeight, 1, theme.accent.r, theme.accent.g, theme.accent.b)
+    self:drawText(ghostTitle, CARD_SIDE_PAD + 16, ghostY + 12, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
 end
 
 function SPLPlannerList:new(x, y, width, height, ownerPanel)
@@ -423,6 +524,108 @@ function SPLPlannerList:new(x, y, width, height, ownerPanel)
     o.draggingTask = false
     o.dragRow = nil
     o.dropIndex = nil
+    return o
+end
+
+function SPLThemeRow:render()
+    ISButton.render(self)
+    local theme = self.rowTheme
+    local textHeight = getTextManager():getFontHeight(UIFont.Small)
+    local swatchSize = 18
+    local swatchY = math.floor((self.height - swatchSize) / 2)
+    self:drawRect(10, swatchY, swatchSize, swatchSize, 1, theme.accent.r, theme.accent.g, theme.accent.b)
+    self:drawRectBorder(10, swatchY, swatchSize, swatchSize, 1, theme.cardBorder.r, theme.cardBorder.g, theme.cardBorder.b)
+    self:drawText(
+        SPLThemes.getName(theme),
+        38,
+        math.floor((self.height - textHeight) / 2),
+        theme.text.r,
+        theme.text.g,
+        theme.text.b,
+        1,
+        UIFont.Small
+    )
+
+    if self.menu.ownerPanel.theme.id == theme.id then
+        self:drawRect(2, 3, 4, self.height - 6, 1, theme.accent.r, theme.accent.g, theme.accent.b)
+    end
+end
+
+function SPLThemeRow:new(x, y, width, height, theme, menu)
+    local o = ISButton.new(self, x, y, width, height, "", menu, SPLThemeMenu.onThemeSelected)
+    o.rowTheme = theme
+    o.menu = menu
+    o.backgroundColor = copyColor(theme.card)
+    o.backgroundColorMouseOver = copyColor(theme.cardHover)
+    o.borderColor = copyColor(theme.cardBorder)
+    return o
+end
+
+function SPLThemeMenu:initialise()
+    ISPanel.initialise(self)
+end
+
+function SPLThemeMenu:createChildren()
+    ISPanel.createChildren(self)
+    self.rows = {}
+    local rowY = 34
+    for _, themeId in ipairs(SPLThemes.ORDER) do
+        local theme = SPLThemes.getDefinition(themeId)
+        local row = SPLThemeRow:new(
+            8,
+            rowY,
+            self.width - 16,
+            THEME_ROW_HEIGHT,
+            theme,
+            self
+        )
+        row:initialise()
+        row:instantiate()
+        self:addChild(row)
+        table.insert(self.rows, row)
+        rowY = rowY + THEME_ROW_HEIGHT + THEME_ROW_GAP
+    end
+end
+
+function SPLThemeMenu:onThemeSelected(button)
+    self.ownerPanel:applyTheme(button.rowTheme.id, true)
+    self:setVisible(false)
+end
+
+function SPLThemeMenu:applyTheme(theme)
+    self.theme = theme
+    self.backgroundColor = copyColor(theme.panel)
+    self.borderColor = copyColor(theme.panelBorder)
+end
+
+function SPLThemeMenu:prerender()
+    ISPanel.prerender(self)
+    local theme = self.theme
+    self:drawRect(1, 1, self.width - 2, 30, 1, theme.header.r, theme.header.g, theme.header.b)
+    self:drawText(
+        uiText("SPL_Title_Theme", "Color theme"),
+        10,
+        8,
+        theme.text.r,
+        theme.text.g,
+        theme.text.b,
+        1,
+        UIFont.Small
+    )
+    self:drawRect(8, 31, self.width - 16, 1, 1, theme.headerBorder.r, theme.headerBorder.g, theme.headerBorder.b)
+end
+
+function SPLThemeMenu:new(x, y, width, ownerPanel)
+    local height = 42 + #SPLThemes.ORDER * THEME_ROW_HEIGHT
+        + math.max(0, #SPLThemes.ORDER - 1) * THEME_ROW_GAP
+    local o = ISPanel.new(self, x, y, width, height)
+    o.ownerPanel = ownerPanel
+    o.theme = ownerPanel.theme
+    o.background = true
+    o.moveWithMouse = false
+    o.backgroundColor = copyColor(o.theme.panel)
+    o.borderColor = copyColor(o.theme.panelBorder)
+    o:setWantMouseEvents(true)
     return o
 end
 
@@ -451,10 +654,13 @@ function SPLConfirmDialog:createChildren()
         self.cancelButton.internal = "NO"
         self.cancelButton:initialise()
         self.cancelButton:instantiate()
-        self.cancelButton.backgroundColor = {r = 0.16, g = 0.145, b = 0.115, a = 1}
-        self.cancelButton.backgroundColorMouseOver = {r = 0.28, g = 0.24, b = 0.17, a = 1}
-        self.cancelButton.borderColor = {r = 0.40, g = 0.36, b = 0.28, a = 1}
-        self.cancelButton.textColor = {r = 0.86, g = 0.82, b = 0.71, a = 1}
+        styleButton(
+            self.cancelButton,
+            self.theme.button,
+            self.theme.buttonHover,
+            self.theme.buttonBorder,
+            self.theme.buttonText
+        )
         self:addChild(self.cancelButton)
 
         self.confirmButton = ISButton:new(
@@ -470,15 +676,22 @@ function SPLConfirmDialog:createChildren()
         self.confirmButton:initialise()
         self.confirmButton:instantiate()
         if self.danger then
-            self.confirmButton.backgroundColor = {r = 0.25, g = 0.075, b = 0.055, a = 1}
-            self.confirmButton.backgroundColorMouseOver = {r = 0.55, g = 0.12, b = 0.075, a = 1}
-            self.confirmButton.borderColor = {r = 0.62, g = 0.20, b = 0.13, a = 1}
+            styleButton(
+                self.confirmButton,
+                self.theme.danger,
+                self.theme.dangerHover,
+                self.theme.dangerBorder,
+                self.theme.dangerText
+            )
         else
-            self.confirmButton.backgroundColor = {r = 0.20, g = 0.24, b = 0.13, a = 1}
-            self.confirmButton.backgroundColorMouseOver = {r = 0.34, g = 0.42, b = 0.20, a = 1}
-            self.confirmButton.borderColor = {r = 0.46, g = 0.56, b = 0.28, a = 1}
+            styleButton(
+                self.confirmButton,
+                self.theme.accent,
+                self.theme.accentHover,
+                self.theme.panelBorder,
+                self.theme.tabActiveText
+            )
         end
-        self.confirmButton.textColor = {r = 0.94, g = 0.90, b = 0.78, a = 1}
         self:addChild(self.confirmButton)
     else
         self.okButton = ISButton:new(
@@ -493,10 +706,13 @@ function SPLConfirmDialog:createChildren()
         self.okButton.internal = "OK"
         self.okButton:initialise()
         self.okButton:instantiate()
-        self.okButton.backgroundColor = {r = 0.20, g = 0.24, b = 0.13, a = 1}
-        self.okButton.backgroundColorMouseOver = {r = 0.34, g = 0.42, b = 0.20, a = 1}
-        self.okButton.borderColor = {r = 0.46, g = 0.56, b = 0.28, a = 1}
-        self.okButton.textColor = {r = 0.94, g = 0.90, b = 0.78, a = 1}
+        styleButton(
+            self.okButton,
+            self.theme.accent,
+            self.theme.accentHover,
+            self.theme.panelBorder,
+            self.theme.tabActiveText
+        )
         self:addChild(self.okButton)
     end
 end
@@ -516,41 +732,42 @@ function SPLConfirmDialog:onMouseDown()
 end
 
 function SPLConfirmDialog:prerender()
-    self:drawRect(0, 0, self.width, self.height, 0.58, 0.015, 0.014, 0.012)
+    local theme = self.theme
+    self:drawRect(0, 0, self.width, self.height, theme.overlay.a, theme.overlay.r, theme.overlay.g, theme.overlay.b)
     self:drawRect(
         self.cardX,
         self.cardY,
         self.cardWidth,
         self.cardHeight,
-        0.99,
-        0.105,
-        0.098,
-        0.078
+        theme.dialog.a or 0.99,
+        theme.dialog.r,
+        theme.dialog.g,
+        theme.dialog.b
     )
 
-    local accentR, accentG, accentB = 0.50, 0.58, 0.31
+    local accent = theme.accent
     if self.danger then
-        accentR, accentG, accentB = 0.68, 0.20, 0.13
+        accent = theme.dangerHover
     end
-    self:drawRect(self.cardX, self.cardY, 4, self.cardHeight, 1, accentR, accentG, accentB)
+    self:drawRect(self.cardX, self.cardY, 4, self.cardHeight, 1, accent.r, accent.g, accent.b)
     self:drawRectBorder(
         self.cardX,
         self.cardY,
         self.cardWidth,
         self.cardHeight,
-        1,
-        0.43,
-        0.39,
-        0.30
+        theme.dialogBorder.a or 1,
+        theme.dialogBorder.r,
+        theme.dialogBorder.g,
+        theme.dialogBorder.b
     )
 
     self:drawText(
         self.titleText,
         self.cardX + 24,
         self.cardY + 18,
-        accentR,
-        accentG,
-        accentB,
+        accent.r,
+        accent.g,
+        accent.b,
         1,
         UIFont.Medium
     )
@@ -559,18 +776,18 @@ function SPLConfirmDialog:prerender()
         self.cardY + 48,
         self.cardWidth - 48,
         1,
-        0.72,
-        0.32,
-        0.29,
-        0.22
+        theme.divider.a or 0.78,
+        theme.divider.r,
+        theme.divider.g,
+        theme.divider.b
     )
     self:drawText(
         self.wrappedText,
         self.cardX + 24,
         self.cardY + 64,
-        0.89,
-        0.85,
-        0.73,
+        theme.text.r,
+        theme.text.g,
+        theme.text.b,
         1,
         UIFont.Small
     )
@@ -586,6 +803,7 @@ function SPLConfirmDialog:new(playerNum, message, yesno, target, callback, dange
     local cardHeight = math.max(174, 64 + textHeight + 64)
     local o = ISPanel.new(self, 0, 0, screenWidth, screenHeight)
     o.playerNum = playerNum or 0
+    o.theme = SPLThemes.get(o.playerNum)
     o.cardWidth = cardWidth
     o.cardHeight = cardHeight
     o.cardX = (screenWidth - cardWidth) / 2
@@ -630,10 +848,21 @@ function SPLMainPanel:createChildren()
     )
     self.closeButton:initialise()
     self.closeButton:instantiate()
-    self.closeButton.backgroundColor = {r = 0.22, g = 0.10, b = 0.08, a = 0.9}
-    self.closeButton.backgroundColorMouseOver = {r = 0.58, g = 0.14, b = 0.10, a = 1}
-    self.closeButton.borderColor = {r = 0.50, g = 0.25, b = 0.18, a = 1}
     self:addChild(self.closeButton)
+
+    self.themeButton = ISButton:new(
+        self.closeButton.x - THEME_BUTTON_SIZE - 4,
+        5,
+        THEME_BUTTON_SIZE,
+        THEME_BUTTON_SIZE,
+        "T",
+        self,
+        SPLMainPanel.onThemeButton
+    )
+    self.themeButton:initialise()
+    self.themeButton:instantiate()
+    self.themeButton.tooltip = uiText("SPL_Tooltip_Theme", "Change color theme")
+    self:addChild(self.themeButton)
 
     local tabGap = 4
     local tabY = STATUS_HEIGHT + 5
@@ -648,8 +877,6 @@ function SPLMainPanel:createChildren()
         button.internal = tabId
         button:initialise()
         button:instantiate()
-        button.backgroundColor = {r = 0.18, g = 0.15, b = 0.11, a = 1}
-        button.backgroundColorMouseOver = {r = 0.30, g = 0.25, b = 0.16, a = 1}
         self:addChild(button)
         self.tabButtons[tabId] = button
     end
@@ -659,9 +886,6 @@ function SPLMainPanel:createChildren()
     self.list = SPLPlannerList:new(PAD, listY, self.width - PAD * 2, self.height - listY - footerHeight, self)
     self.list:initialise()
     self.list:instantiate()
-    self.list.backgroundColor = {r = 0.09, g = 0.085, b = 0.07, a = 0.96}
-    self.list.borderColor = {r = 0.38, g = 0.34, b = 0.27, a = 1}
-    self.list.selectionColor = {r = 0.28, g = 0.34, b = 0.20, a = 0.82}
     self.list:setOnMouseDownFunction(self, SPLMainPanel.onSelectionChanged)
     self:addChild(self.list)
 
@@ -676,11 +900,8 @@ function SPLMainPanel:createChildren()
     self.secondaryButton = self:createFooterButton(PAD * 2 + quarterWidth, row2Y, quarterWidth, uiText("SPL_Button_Plan", "Plan"), SPLMainPanel.onSecondaryAction)
     self.primaryButton = self:createFooterButton(PAD * 3 + quarterWidth * 2, row2Y, quarterWidth, uiText("SPL_Button_Complete", "Complete"), SPLMainPanel.onPrimaryAction)
     self.deleteButton = self:createFooterButton(PAD * 4 + quarterWidth * 3, row2Y, self.width - PAD * 5 - quarterWidth * 3, uiText("SPL_Button_DeleteTask", "Delete task"), SPLMainPanel.onDelete)
-    self.deleteButton.backgroundColor = {r = 0.22, g = 0.075, b = 0.055, a = 1}
-    self.deleteButton.backgroundColorMouseOver = {r = 0.50, g = 0.12, b = 0.075, a = 1}
-    self.deleteButton.borderColor = {r = 0.57, g = 0.18, b = 0.12, a = 1}
-    self.deleteButton.textColor = {r = 0.92, g = 0.83, b = 0.72, a = 1}
 
+    self:applyTheme(nil, false)
     self:refreshList()
 end
 
@@ -688,10 +909,88 @@ function SPLMainPanel:createFooterButton(x, y, width, title, callback)
     local button = ISButton:new(x, y, width, BUTTON_HEIGHT, title, self, callback)
     button:initialise()
     button:instantiate()
-    button.backgroundColor = {r = 0.18, g = 0.16, b = 0.12, a = 1}
-    button.backgroundColorMouseOver = {r = 0.30, g = 0.25, b = 0.16, a = 1}
     self:addChild(button)
     return button
+end
+
+function SPLMainPanel:onThemeButton()
+    if self.themeMenu then
+        self.themeMenu:setVisible(not self.themeMenu:getIsVisible())
+        return
+    end
+
+    self.themeMenu = SPLThemeMenu:new(
+        self.width - PAD - THEME_MENU_WIDTH,
+        STATUS_HEIGHT + 4,
+        THEME_MENU_WIDTH,
+        self
+    )
+    self.themeMenu:initialise()
+    self.themeMenu:instantiate()
+    self:addChild(self.themeMenu)
+end
+
+function SPLMainPanel:applyTheme(themeId, persist)
+    if themeId and persist then
+        self.theme = SPLThemes.set(self.playerNum, themeId)
+    elseif themeId then
+        self.theme = SPLThemes.getDefinition(themeId)
+    else
+        self.theme = SPLThemes.get(self.playerNum)
+    end
+
+    local theme = self.theme
+    self.backgroundColor = copyColor(theme.panel)
+    self.borderColor = copyColor(theme.panelBorder)
+
+    styleButton(
+        self.closeButton,
+        theme.danger,
+        theme.dangerHover,
+        theme.dangerBorder,
+        theme.dangerText
+    )
+    styleButton(
+        self.themeButton,
+        theme.accent,
+        theme.accentHover,
+        theme.panelBorder,
+        theme.tabActiveText
+    )
+
+    self.list.theme = theme
+    self.list.backgroundColor = copyColor(theme.list)
+    self.list.borderColor = copyColor(theme.listBorder)
+    self.list.selectionColor = copyColor(theme.cardSelected, 0.82)
+
+    for _, button in ipairs({
+        self.addButton,
+        self.editButton,
+        self.subtaskButton,
+        self.secondaryButton,
+        self.primaryButton,
+    }) do
+        styleButton(button, theme.button, theme.buttonHover, theme.buttonBorder, theme.buttonText)
+    end
+    styleButton(
+        self.deleteButton,
+        theme.danger,
+        theme.dangerHover,
+        theme.dangerBorder,
+        theme.dangerText
+    )
+
+    if self.themeMenu then
+        self.themeMenu:applyTheme(theme)
+    end
+
+    local data = self:getData()
+    if data and self.tabButtons then
+        self:updateTabTitles(data)
+    end
+    if self.list and self.addButton then
+        self:updateButtons()
+    end
 end
 
 function SPLMainPanel:getData()
@@ -744,6 +1043,8 @@ function SPLMainPanel:refreshList(selectId)
                 for _, subtask in ipairs(task.subtasks or {}) do
                     row.height = row.height + calculateSubtaskHeight(subtask)
                 end
+                row.height = row.height
+                    + math.max(0, #(task.subtasks or {}) - 1) * SUBTASK_SEPARATOR_HEIGHT
                 if tonumber(selectId) == tonumber(task.id) then
                     selectedIndex = #self.list.items
                 end
@@ -764,6 +1065,7 @@ function SPLMainPanel:refreshList(selectId)
 end
 
 function SPLMainPanel:updateTabTitles(data)
+    local theme = self.theme or SPLThemes.get(self.playerNum)
     local counts = {active = 0, planned = 0, done = 0, tracking = #data.trackedItems}
     for _, task in ipairs(data.tasks) do
         if counts[task.status] ~= nil then
@@ -775,11 +1077,21 @@ function SPLMainPanel:updateTabTitles(data)
         local button = self.tabButtons[tabId]
         button:setTitle(taskStatusText(tabId) .. " (" .. tostring(counts[tabId] or 0) .. ")")
         if tabId == self.currentTab then
-            button.backgroundColor = {r = 0.35, g = 0.28, b = 0.18, a = 1}
-            button.borderColor = {r = 0.56, g = 0.50, b = 0.34, a = 1}
+            styleButton(
+                button,
+                theme.tabActive,
+                theme.accentHover,
+                theme.tabActiveBorder,
+                theme.tabActiveText
+            )
         else
-            button.backgroundColor = {r = 0.18, g = 0.15, b = 0.11, a = 1}
-            button.borderColor = {r = 0.36, g = 0.32, b = 0.27, a = 1}
+            styleButton(
+                button,
+                theme.tab,
+                theme.tabHover,
+                theme.tabBorder,
+                theme.buttonText
+            )
         end
     end
 end
@@ -798,8 +1110,8 @@ function SPLMainPanel:updateButtons()
     if isTracking then
         self.addButton:setTitle(uiText("SPL_Button_TrackItem", "Track item"))
         self.editButton:setTitle(uiText("SPL_Button_RemoveTracking", "Remove tracking"))
-        self.addButton:setEnable(editable)
-        self.editButton:setEnable(editable and hasSelection)
+        SPLThemes.setButtonEnabled(self.addButton, editable)
+        SPLThemes.setButtonEnabled(self.editButton, editable and hasSelection)
         self.subtaskButton:setVisible(false)
         self.secondaryButton:setVisible(false)
         self.primaryButton:setVisible(false)
@@ -816,27 +1128,30 @@ function SPLMainPanel:updateButtons()
             and uiText("SPL_Button_ClearDone", "Clear done")
             or uiText("SPL_Button_NewTask", "Create task")
     )
-    self.addButton:setEnable(editable and (
+    SPLThemes.setButtonEnabled(self.addButton, editable and (
         self.currentTab ~= SurvivalPlannerList.STATUS_DONE or #self.list.items > 0
     ))
     self.editButton:setTitle(uiText("SPL_Button_Edit", "Edit"))
-    self.editButton:setEnable(editable and selectedTask ~= nil)
-    self.subtaskButton:setEnable(editable and selectedTask ~= nil and self.currentTab ~= SurvivalPlannerList.STATUS_DONE)
-    self.deleteButton:setEnable(editable and selectedTask ~= nil)
+    SPLThemes.setButtonEnabled(self.editButton, editable and selectedTask ~= nil)
+    SPLThemes.setButtonEnabled(
+        self.subtaskButton,
+        editable and selectedTask ~= nil and self.currentTab ~= SurvivalPlannerList.STATUS_DONE
+    )
+    SPLThemes.setButtonEnabled(self.deleteButton, editable and selectedTask ~= nil)
 
     if self.currentTab == SurvivalPlannerList.STATUS_ACTIVE then
         self.secondaryButton:setTitle(uiText("SPL_Button_Plan", "Move to planned"))
         self.primaryButton:setTitle(uiText("SPL_Button_Complete", "Complete"))
-        self.secondaryButton:setEnable(editable and selectedTask ~= nil)
-        self.primaryButton:setEnable(editable and selectedTask ~= nil)
+        SPLThemes.setButtonEnabled(self.secondaryButton, editable and selectedTask ~= nil)
+        SPLThemes.setButtonEnabled(self.primaryButton, editable and selectedTask ~= nil)
     elseif self.currentTab == SurvivalPlannerList.STATUS_PLANNED then
         self.secondaryButton:setVisible(false)
         self.primaryButton:setTitle(uiText("SPL_Button_Activate", "Make active"))
-        self.primaryButton:setEnable(editable and selectedTask ~= nil)
+        SPLThemes.setButtonEnabled(self.primaryButton, editable and selectedTask ~= nil)
     else
         self.secondaryButton:setVisible(false)
         self.primaryButton:setTitle(uiText("SPL_Button_Reopen", "Reopen"))
-        self.primaryButton:setEnable(editable and selectedTask ~= nil)
+        SPLThemes.setButtonEnabled(self.primaryButton, editable and selectedTask ~= nil)
         self.subtaskButton:setVisible(false)
     end
 end
@@ -1008,7 +1323,8 @@ function SPLMainPanel:onTaskIconClicked(task)
         task.iconType,
         self,
         SPLMainPanel.onTaskIconPicked,
-        task.id
+        task.id,
+        "icons"
     )
 end
 
@@ -1207,17 +1523,36 @@ function SPLMainPanel:prerender()
     self.inventoryCounts = SurvivalPlannerList.Automation.getCounts(self.playerNum)
     ISPanel.prerender(self)
 
-    self:drawRect(1, 1, self.width - 2, STATUS_HEIGHT - 1, 1, 0.14, 0.13, 0.105)
-    self:drawRect(1, STATUS_HEIGHT, self.width - 2, 1, 1, 0.34, 0.30, 0.23)
+    local theme = self.theme
+    self:drawRect(1, 1, self.width - 2, STATUS_HEIGHT - 1, 1, theme.header.r, theme.header.g, theme.header.b)
+    self:drawRect(
+        1,
+        STATUS_HEIGHT,
+        self.width - 2,
+        1,
+        1,
+        theme.headerBorder.r,
+        theme.headerBorder.g,
+        theme.headerBorder.b
+    )
     local statusText
-    local r, g, b = 0.55, 0.68, 0.43
+    local statusColor = theme.statusEditable
     if self.editAccess then
         statusText = uiText("SPL_Status_Editable", "Writing tool + eraser found — editing enabled")
     else
         statusText = uiText("SPL_Status_ReadOnly", "Read-only — carry a writing tool and an eraser to edit")
-        r, g, b = 0.78, 0.56, 0.36
+        statusColor = theme.statusReadonly
     end
-    self:drawTextCentre(statusText, self.width / 2, 10, r, g, b, 1, UIFont.Small)
+    self:drawTextCentre(
+        statusText,
+        self.width / 2,
+        10,
+        statusColor.r,
+        statusColor.g,
+        statusColor.b,
+        1,
+        UIFont.Small
+    )
 end
 
 function SPLMainPanel:render()
@@ -1227,6 +1562,7 @@ end
 function SPLMainPanel:close()
     self:dismissDialog()
     self.pendingConfirmation = nil
+    savePanelPosition(self)
     SPLMainPanel.instances[self.playerNum + 1] = nil
     self:setVisible(false)
     self:removeFromUIManager()
@@ -1241,12 +1577,14 @@ function SPLMainPanel:new(playerNum, planner)
     local y = (screenHeight - height) / 2
     local o = ISPanel.new(self, x, y, width, height)
     o.playerNum = playerNum or 0
+    o.theme = SPLThemes.get(o.playerNum)
     o.planner = planner
     o.currentTab = SurvivalPlannerList.STATUS_ACTIVE
     o.background = true
     o.moveWithMouse = true
-    o.backgroundColor = {r = 0.115, g = 0.105, b = 0.085, a = 0.98}
-    o.borderColor = {r = 0.46, g = 0.41, b = 0.31, a = 1}
+    o.backgroundColor = copyColor(o.theme.panel)
+    o.borderColor = copyColor(o.theme.panelBorder)
+    restorePanelPosition(o)
     return o
 end
 

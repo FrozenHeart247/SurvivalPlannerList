@@ -2,6 +2,7 @@ require "ISUI/ISPanel"
 require "ISUI/ISButton"
 require "ISUI/ISTextEntryBox"
 require "SurvivalPlannerList/SurvivalPlannerList_Core"
+require "SurvivalPlannerList/SurvivalPlannerList_Themes"
 require "SurvivalPlannerList/SurvivalPlannerList_ItemPicker"
 require "SurvivalPlannerList/SurvivalPlannerList_GoalUI"
 require "SurvivalPlannerList/SurvivalPlannerList_MapIntegration"
@@ -21,9 +22,9 @@ local function uiText(key, fallback)
     return value
 end
 
-local function styleEntry(entry)
-    entry.backgroundColor = {r = 0.055, g = 0.052, b = 0.043, a = 1}
-    entry.borderColor = {r = 0.40, g = 0.36, b = 0.28, a = 1}
+local function styleEntry(entry, theme)
+    entry.backgroundColor = SPLThemes.copyColor(theme.input)
+    entry.borderColor = SPLThemes.copyColor(theme.inputBorder)
 end
 
 function SPLTaskEditor:initialise()
@@ -37,7 +38,7 @@ function SPLTaskEditor:createChildren()
     self.titleEntry:initialise()
     self.titleEntry:instantiate()
     self.titleEntry:setClearButton(true)
-    styleEntry(self.titleEntry)
+    styleEntry(self.titleEntry, self.theme)
     self:addChild(self.titleEntry)
 
     self.iconButton = ISButton:new(
@@ -126,6 +127,9 @@ function SPLTaskEditor:createChildren()
     self.goalList:initialise()
     self.goalList:instantiate()
     self.goalList.target = self
+    self.goalList.theme = self.theme
+    self.goalList.backgroundColor = SPLThemes.copyColor(self.theme.list)
+    self.goalList.borderColor = SPLThemes.copyColor(self.theme.listBorder)
     self.goalList.onmousedown = SPLTaskEditor.onGoalSelectionChanged
     self:addChild(self.goalList)
 
@@ -148,7 +152,7 @@ function SPLTaskEditor:createChildren()
     self.quantityEntry:initialise()
     self.quantityEntry:instantiate()
     self.quantityEntry:setOnlyNumbers(true)
-    styleEntry(self.quantityEntry)
+    styleEntry(self.quantityEntry, self.theme)
     self:addChild(self.quantityEntry)
 
     self.applyQuantityButton = ISButton:new(
@@ -236,8 +240,8 @@ function SPLTaskEditor:onGoalSelectionChanged()
         self.quantityEntry:setText(tostring(goal.quantity or 1))
     end
     self.quantityEntry:setEditable(goal ~= nil)
-    self.applyQuantityButton:setEnable(goal ~= nil)
-    self.removeGoalButton:setEnable(goal ~= nil)
+    SPLThemes.setButtonEnabled(self.applyQuantityButton, goal ~= nil)
+    SPLThemes.setButtonEnabled(self.removeGoalButton, goal ~= nil)
 end
 
 function SPLTaskEditor:onChooseIcon()
@@ -247,7 +251,8 @@ function SPLTaskEditor:onChooseIcon()
         self.iconType,
         self,
         SPLTaskEditor.onIconPicked,
-        "icon"
+        "icon",
+        "icons"
     )
 end
 
@@ -364,12 +369,12 @@ function SPLTaskEditor:update()
     ISPanel.update(self)
     local hasTitle = SurvivalPlannerList.trim(self.titleEntry:getText()) ~= ""
     local hasCondition = #self.goals > 0 or self.hasSubtasks
-    self.saveButton:setEnable(hasTitle)
-    self.autoButton:setEnable(hasCondition)
+    SPLThemes.setButtonEnabled(self.saveButton, hasTitle)
+    SPLThemes.setButtonEnabled(self.autoButton, hasCondition)
     local hasMapTarget = self:getMapTarget() ~= nil
     local canNavigate = hasMapTarget and self.status ~= SurvivalPlannerList.STATUS_DONE
-    self.navigationButton:setEnable(canNavigate)
-    self.clearMapButton:setEnable(hasMapTarget)
+    SPLThemes.setButtonEnabled(self.navigationButton, canNavigate)
+    SPLThemes.setButtonEnabled(self.clearMapButton, hasMapTarget)
     if not canNavigate and self.navigationEnabled then
         self.navigationEnabled = false
         self.navigationButton:setChecked(false)
@@ -414,23 +419,24 @@ function SPLTaskEditor:close()
 end
 
 function SPLTaskEditor:prerender()
-    self:drawRect(0, 0, self.width, self.height, 0.98, 0.115, 0.105, 0.085)
-    self:drawRect(0, 0, self.width, HEADER_HEIGHT, 1, 0.22, 0.20, 0.15)
-    self:drawRectBorder(0, 0, self.width, self.height, 1, 0.46, 0.41, 0.31)
-    self:drawTextCentre(self.windowTitle, self.width / 2, 10, 0.93, 0.90, 0.78, 1, UIFont.Medium)
+    local theme = self.theme
+    self:drawRect(0, 0, self.width, self.height, theme.panel.a or 0.98, theme.panel.r, theme.panel.g, theme.panel.b)
+    self:drawRect(0, 0, self.width, HEADER_HEIGHT, 1, theme.header.r, theme.header.g, theme.header.b)
+    self:drawRectBorder(0, 0, self.width, self.height, 1, theme.panelBorder.r, theme.panelBorder.g, theme.panelBorder.b)
+    self:drawTextCentre(self.windowTitle, self.width / 2, 10, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
 
-    self:drawText(uiText("SPL_Label_TaskTitle", "Task title"), PAD, 47, 0.78, 0.75, 0.65, 1, UIFont.Small)
-    self:drawText(uiText("SPL_Label_Icon", "Icon"), PAD, 112, 0.78, 0.75, 0.65, 1, UIFont.Small)
-    self:drawRect(PAD, 137, PREVIEW_SIZE, PREVIEW_SIZE, 0.96, 0.075, 0.07, 0.055)
-    self:drawRectBorder(PAD, 137, PREVIEW_SIZE, PREVIEW_SIZE, 1, 0.40, 0.36, 0.28)
+    self:drawText(uiText("SPL_Label_TaskTitle", "Task title"), PAD, 47, theme.mutedText.r, theme.mutedText.g, theme.mutedText.b, 1, UIFont.Small)
+    self:drawText(uiText("SPL_Label_Icon", "Icon"), PAD, 112, theme.mutedText.r, theme.mutedText.g, theme.mutedText.b, 1, UIFont.Small)
+    self:drawRect(PAD, 137, PREVIEW_SIZE, PREVIEW_SIZE, 0.96, theme.card.r, theme.card.g, theme.card.b)
+    self:drawRectBorder(PAD, 137, PREVIEW_SIZE, PREVIEW_SIZE, 1, theme.cardBorder.r, theme.cardBorder.g, theme.cardBorder.b)
     local icon = SurvivalPlannerList.getItemTexture(self.iconType)
     if icon then
         self:drawTextureScaledAspect(icon, PAD + 6, 143, PREVIEW_SIZE - 12, PREVIEW_SIZE - 12, 1, 1, 1, 1)
     end
 
-    self:drawText(uiText("SPL_Label_MapTarget", "Map target"), PAD, 203, 0.78, 0.75, 0.65, 1, UIFont.Small)
-    self:drawRect(PAD, 227, self.width - PAD * 2, 108, 0.80, 0.075, 0.070, 0.055)
-    self:drawRectBorder(PAD, 227, self.width - PAD * 2, 108, 0.75, 0.38, 0.34, 0.27)
+    self:drawText(uiText("SPL_Label_MapTarget", "Map target"), PAD, 203, theme.mutedText.r, theme.mutedText.g, theme.mutedText.b, 1, UIFont.Small)
+    self:drawRect(PAD, 227, self.width - PAD * 2, 108, 0.80, theme.card.r, theme.card.g, theme.card.b)
+    self:drawRectBorder(PAD, 227, self.width - PAD * 2, 108, 0.75, theme.cardBorder.r, theme.cardBorder.g, theme.cardBorder.b)
     local mapTarget = self:getMapTarget()
     local mapTargetText = uiText("SPL_Label_NoMapTarget", "No map target selected")
     if mapTarget then
@@ -441,16 +447,16 @@ function SPLTaskEditor:prerender()
             math.floor(mapTarget.y)
         )
     end
-    self:drawText(mapTargetText, PAD + 12, 236, 0.84, 0.82, 0.70, 1, UIFont.Small)
+    self:drawText(mapTargetText, PAD + 12, 236, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
 
-    self:drawText(uiText("SPL_Label_ItemGoals", "Item goals"), PAD, 348, 0.78, 0.75, 0.65, 1, UIFont.Small)
+    self:drawText(uiText("SPL_Label_ItemGoals", "Item goals"), PAD, 348, theme.mutedText.r, theme.mutedText.g, theme.mutedText.b, 1, UIFont.Small)
     self:drawText(
         uiText("SPL_Label_Quantity", "Quantity"),
         self.quantityEntry.x,
         self.quantityEntry.y - 22,
-        0.78,
-        0.75,
-        0.65,
+        theme.mutedText.r,
+        theme.mutedText.g,
+        theme.mutedText.b,
         1,
         UIFont.Small
     )
@@ -459,9 +465,9 @@ function SPLTaskEditor:prerender()
             uiText("SPL_Label_NoGoals", "No item goals"),
             self.goalList.x + self.goalList.width / 2,
             self.goalList.y + 72,
-            0.48,
-            0.46,
-            0.40,
+            theme.subtleText.r,
+            theme.subtleText.g,
+            theme.subtleText.b,
             1,
             UIFont.Small
         )
@@ -470,9 +476,9 @@ function SPLTaskEditor:prerender()
         uiText("SPL_Hint_AutoTools", "Automatic completion requires a writing tool and an eraser."),
         PAD + 2,
         591,
-        0.58,
-        0.57,
-        0.49,
+        theme.subtleText.r,
+        theme.subtleText.g,
+        theme.subtleText.b,
         1,
         UIFont.Small
     )
@@ -485,6 +491,7 @@ function SPLTaskEditor:new(playerNum, task, status, saveTarget, onSave)
     local height = math.min(660, screenHeight - 60)
     local o = ISPanel.new(self, (screenWidth - width) / 2, (screenHeight - height) / 2, width, height)
     o.playerNum = playerNum or 0
+    o.theme = SPLThemes.get(o.playerNum)
     o.task = task
     o.status = status or SurvivalPlannerList.STATUS_ACTIVE
     o.saveTarget = saveTarget
@@ -499,8 +506,8 @@ function SPLTaskEditor:new(playerNum, task, status, saveTarget, onSave)
     o.navigationEnabled = task and task.navigationEnabled == true or false
     o.autoComplete = task and task.autoComplete == true or false
     o.hasSubtasks = task and #(task.subtasks or {}) > 0 or false
-    o.backgroundColor = {r = 0.115, g = 0.105, b = 0.085, a = 0.98}
-    o.borderColor = {r = 0.46, g = 0.41, b = 0.31, a = 1}
+    o.backgroundColor = SPLThemes.copyColor(o.theme.panel)
+    o.borderColor = SPLThemes.copyColor(o.theme.panelBorder)
     o.moveWithMouse = true
     return o
 end

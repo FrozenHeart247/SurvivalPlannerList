@@ -4,6 +4,16 @@ SPLStyledScrollBar = SPLStyledScrollBar or ISScrollBar:derive("SPLStyledScrollBa
 
 local SCROLLBAR_WIDTH = 12
 
+local function getTheme(scrollbar)
+    if scrollbar.parent.theme then
+        return scrollbar.parent.theme
+    end
+    if scrollbar.parent.ownerPanel and scrollbar.parent.ownerPanel.theme then
+        return scrollbar.parent.ownerPanel.theme
+    end
+    return nil
+end
+
 function SPLStyledScrollBar:instantiate()
     self.javaObject = UIElement.new(self)
     self.anchorLeft = false
@@ -84,9 +94,62 @@ function SPLStyledScrollBar:render()
         and self:isPointOverThumb(self:getMouseX(), self:getMouseY())
     )
 
+    local theme = getTheme(self)
+    if theme then
+        self:drawRect(
+            1,
+            0,
+            self.width - 2,
+            self.height,
+            0.92,
+            theme.list.r,
+            theme.list.g,
+            theme.list.b
+        )
+        self:drawRect(
+            trackX + 1,
+            trackPadding,
+            trackWidth - 2,
+            trackHeight,
+            0.76,
+            theme.panel.r,
+            theme.panel.g,
+            theme.panel.b
+        )
+
+        local thumb = theme.mutedText
+        if hovered then
+            thumb = theme.accent
+        end
+        if self.scrolling then
+            thumb = theme.accentHover
+        end
+        self:drawRect(trackX, thumbY, trackWidth, thumbHeight, 1, thumb.r, thumb.g, thumb.b)
+        self:drawRectBorder(
+            trackX,
+            thumbY,
+            trackWidth,
+            thumbHeight,
+            1,
+            theme.headerBorder.r,
+            theme.headerBorder.g,
+            theme.headerBorder.b
+        )
+        self:drawRectBorder(
+            1,
+            0,
+            self.width - 2,
+            self.height,
+            0.92,
+            theme.listBorder.r,
+            theme.listBorder.g,
+            theme.listBorder.b
+        )
+        return
+    end
+
     self:drawRect(1, 0, self.width - 2, self.height, 0.90, 0.075, 0.070, 0.055)
     self:drawRect(trackX + 1, trackPadding, trackWidth - 2, trackHeight, 0.95, 0.13, 0.12, 0.09)
-
     local r, g, b = 0.42, 0.39, 0.29
     if hovered then
         r, g, b = 0.61, 0.57, 0.37

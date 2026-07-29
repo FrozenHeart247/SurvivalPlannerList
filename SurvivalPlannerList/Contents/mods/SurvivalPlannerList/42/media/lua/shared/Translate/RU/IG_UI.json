@@ -80,5 +80,20 @@
     "SPL_Map_CurrentPosition": "Текущая позиция",
     "SPL_Map_PlaceHint": "Щёлкните по карте, чтобы установить цель. Перетаскивание двигает карту; Esc отменяет.",
     "SPL_Unit_Tiles": "клеток",
-    "SPL_Unit_Kilometers": "км"
+    "SPL_Unit_Kilometers": "км",
+    "SPL_Category_PlannerIcon": "Иконка планировщика",
+    "SPL_Icon_Travel": "Путешествие",
+    "SPL_Icon_Animals": "Животные",
+    "SPL_Icon_Car": "Транспорт",
+    "SPL_Icon_Unknown": "Неизвестно",
+    "SPL_Icon_CheckLocation": "Проверить место",
+    "SPL_Tooltip_SearchIcons": "Поиск среди иконок задач и предметов",
+    "SPL_Title_Theme": "Цветовая тема",
+    "SPL_Tooltip_Theme": "Изменить цветовую тему",
+    "SPL_Theme_Notebook": "Записная книжка",
+    "SPL_Theme_Red": "Красная",
+    "SPL_Theme_Green": "Зелёная",
+    "SPL_Theme_Yellow": "Жёлтая",
+    "SPL_Theme_Purple": "Фиолетовая",
+    "SPL_Theme_Neutral": "Нейтральная"
 }

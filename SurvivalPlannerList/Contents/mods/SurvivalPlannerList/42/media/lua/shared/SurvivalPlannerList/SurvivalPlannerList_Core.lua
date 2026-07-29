@@ -889,6 +889,95 @@ end
 
 SurvivalPlannerList._itemCatalog = SurvivalPlannerList._itemCatalog or nil
 SurvivalPlannerList._itemCatalogByType = SurvivalPlannerList._itemCatalogByType or {}
+SurvivalPlannerList.CUSTOM_ICONS = SurvivalPlannerList.CUSTOM_ICONS or {}
+SurvivalPlannerList._customIconsById = SurvivalPlannerList._customIconsById or {}
+
+function SurvivalPlannerList.registerTaskIcon(iconId, texturePath, nameKey, fallbackName)
+    iconId = trim(iconId)
+    texturePath = trim(texturePath)
+    if iconId == "" or texturePath == "" then
+        return false
+    end
+
+    local entry = SurvivalPlannerList._customIconsById[iconId]
+    if not entry then
+        entry = {
+            fullType = iconId,
+            isCustomIcon = true,
+        }
+        SurvivalPlannerList._customIconsById[iconId] = entry
+        table.insert(SurvivalPlannerList.CUSTOM_ICONS, entry)
+    end
+    entry.texturePath = texturePath
+    entry.nameKey = trim(nameKey)
+    entry.fallbackName = trim(fallbackName) ~= "" and trim(fallbackName) or iconId
+    entry.texture = nil
+    return true
+end
+
+SurvivalPlannerList.registerTaskIcon(
+    "SPL.Icon.Travel",
+    "media/textures/SPL_Icon_Travel.png",
+    "SPL_Icon_Travel",
+    "Travel"
+)
+SurvivalPlannerList.registerTaskIcon(
+    "SPL.Icon.Animals",
+    "media/textures/SPL_Icon_Animals.png",
+    "SPL_Icon_Animals",
+    "Animals"
+)
+SurvivalPlannerList.registerTaskIcon(
+    "SPL.Icon.Car",
+    "media/textures/SPL_Icon_Car.png",
+    "SPL_Icon_Car",
+    "Vehicle"
+)
+SurvivalPlannerList.registerTaskIcon(
+    "SPL.Icon.Unknown",
+    "media/textures/SPL_Icon_Unknow.png",
+    "SPL_Icon_Unknown",
+    "Unknown"
+)
+SurvivalPlannerList.registerTaskIcon(
+    "SPL.Icon.CheckLocation",
+    "media/textures/SPL_Icon_CheckLocation.png",
+    "SPL_Icon_CheckLocation",
+    "Check location"
+)
+
+local function customIconName(entry)
+    if getText and entry.nameKey ~= "" then
+        local translated = getText(entry.nameKey)
+        if translated and translated ~= entry.nameKey then
+            return translated
+        end
+    end
+    return entry.fallbackName or entry.fullType
+end
+
+function SurvivalPlannerList.getCustomIconCatalog()
+    for _, entry in ipairs(SurvivalPlannerList.CUSTOM_ICONS) do
+        entry.name = customIconName(entry)
+        if not entry.texture and getTexture then
+            entry.texture = getTexture(entry.texturePath)
+        end
+    end
+    return SurvivalPlannerList.CUSTOM_ICONS
+end
+
+function SurvivalPlannerList.getIconCatalog()
+    local catalog = {}
+    for _, entry in ipairs(SurvivalPlannerList.getCustomIconCatalog()) do
+        if entry.texture then
+            table.insert(catalog, entry)
+        end
+    end
+    for _, entry in ipairs(SurvivalPlannerList.getItemCatalog()) do
+        table.insert(catalog, entry)
+    end
+    return catalog
+end
 
 function SurvivalPlannerList.getItemCatalog()
     if SurvivalPlannerList._itemCatalog then
@@ -940,8 +1029,17 @@ function SurvivalPlannerList.getCatalogEntry(fullType)
         return nil
     end
 
+    local entry = SurvivalPlannerList._customIconsById[fullType]
+    if entry then
+        entry.name = customIconName(entry)
+        if not entry.texture and getTexture then
+            entry.texture = getTexture(entry.texturePath)
+        end
+        return entry
+    end
+
     SurvivalPlannerList.getItemCatalog()
-    local entry = SurvivalPlannerList._itemCatalogByType[fullType]
+    entry = SurvivalPlannerList._itemCatalogByType[fullType]
     if entry then
         return entry
     end

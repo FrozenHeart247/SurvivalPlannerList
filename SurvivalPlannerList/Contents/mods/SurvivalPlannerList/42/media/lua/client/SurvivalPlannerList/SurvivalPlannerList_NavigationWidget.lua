@@ -1,5 +1,6 @@
 require "ISUI/ISPanel"
 require "SurvivalPlannerList/SurvivalPlannerList_Core"
+require "SurvivalPlannerList/SurvivalPlannerList_Themes"
 
 SPLNavigationWidget = ISPanel:derive("SPLNavigationWidget")
 
@@ -154,12 +155,13 @@ function SPLNavigationWidget:onMouseUpOutside(x, y)
 end
 
 function SPLNavigationWidget:prerender()
+    local theme = SPLThemes.get(self.playerNum)
     local hovered = self:isMouseOver() or self.dragging
     local centerX = self.width / 2
     local centerY = self.height / 2
-    local borderR, borderG, borderB = 0.50, 0.61, 0.31
+    local border = theme.accent
     if hovered then
-        borderR, borderG, borderB = 0.70, 0.81, 0.41
+        border = theme.accentHover
     end
 
     if self.markerTexture then
@@ -176,23 +178,24 @@ function SPLNavigationWidget:prerender()
             1
         )
     else
-        self:drawRect(centerX - 15, centerY - 23, 30, 46, 0.92, 0.075, 0.070, 0.055)
-        self:drawRect(centerX - 20, centerY - 19, 40, 38, 0.92, 0.075, 0.070, 0.055)
-        self:drawRect(centerX - 23, centerY - 14, 46, 28, 0.92, 0.075, 0.070, 0.055)
-        self:drawRectBorder(centerX - 15, centerY - 23, 30, 46, 1, borderR, borderG, borderB)
-        self:drawRectBorder(centerX - 23, centerY - 14, 46, 28, 1, borderR, borderG, borderB)
-        self:drawRect(centerX - 19, centerY - 10, 4, 20, 1, 0.50, 0.61, 0.31)
+        self:drawRect(centerX - 15, centerY - 23, 30, 46, 0.92, theme.card.r, theme.card.g, theme.card.b)
+        self:drawRect(centerX - 20, centerY - 19, 40, 38, 0.92, theme.card.r, theme.card.g, theme.card.b)
+        self:drawRect(centerX - 23, centerY - 14, 46, 28, 0.92, theme.card.r, theme.card.g, theme.card.b)
+        self:drawRectBorder(centerX - 15, centerY - 23, 30, 46, 1, border.r, border.g, border.b)
+        self:drawRectBorder(centerX - 23, centerY - 14, 46, 28, 1, border.r, border.g, border.b)
+        self:drawRect(centerX - 19, centerY - 10, 4, 20, 1, theme.accent.r, theme.accent.g, theme.accent.b)
     end
 
     if self.iconTexture then
         self:drawTextureScaledAspect(self.iconTexture, centerX - 15, centerY - 15, 30, 30, 1, 1, 1, 1)
     else
-        self:drawTextCentre("!", centerX, centerY - 10, 0.92, 0.88, 0.72, 1, UIFont.Medium)
+        self:drawTextCentre("!", centerX, centerY - 10, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
     end
 end
 
 function SPLNavigationWidget:render()
     ISPanel.render(self)
+    local theme = SPLThemes.get(self.playerNum)
     local player = getSpecificPlayer(self.playerNum)
     local angle, distance = directionAndDistance(player, self.target)
     local orbit = 34
@@ -225,17 +228,17 @@ function SPLNavigationWidget:render()
         tooltipX = -width - 8
     end
     local tooltipY = math.floor((self.height - tooltipHeight) / 2)
-    self:drawRect(tooltipX, tooltipY, width, tooltipHeight, 0.96, 0.075, 0.070, 0.055)
-    self:drawRect(tooltipX, tooltipY, 4, tooltipHeight, 1, 0.50, 0.61, 0.31)
-    self:drawRectBorder(tooltipX, tooltipY, width, tooltipHeight, 1, 0.42, 0.49, 0.29)
-    self:drawText(wrapped, tooltipX + 12, tooltipY + 8, 0.94, 0.91, 0.79, 1, UIFont.Small)
+    self:drawRect(tooltipX, tooltipY, width, tooltipHeight, 0.96, theme.dialog.r, theme.dialog.g, theme.dialog.b)
+    self:drawRect(tooltipX, tooltipY, 4, tooltipHeight, 1, theme.accent.r, theme.accent.g, theme.accent.b)
+    self:drawRectBorder(tooltipX, tooltipY, width, tooltipHeight, 1, theme.dialogBorder.r, theme.dialogBorder.g, theme.dialogBorder.b)
+    self:drawText(wrapped, tooltipX + 12, tooltipY + 8, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
     self:drawText(
         formatDistance(distance),
         tooltipX + 12,
         tooltipY + tooltipHeight - getTextManager():getFontHeight(UIFont.Small) - 8,
-        0.66,
-        0.76,
-        0.40,
+        theme.accent.r,
+        theme.accent.g,
+        theme.accent.b,
         1,
         UIFont.Small
     )

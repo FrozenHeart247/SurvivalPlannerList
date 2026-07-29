@@ -2,6 +2,7 @@ require "ISUI/ISPanel"
 require "ISUI/ISButton"
 require "ISUI/ISTextEntryBox"
 require "SurvivalPlannerList/SurvivalPlannerList_Core"
+require "SurvivalPlannerList/SurvivalPlannerList_Themes"
 require "SurvivalPlannerList/SurvivalPlannerList_ItemPicker"
 require "SurvivalPlannerList/SurvivalPlannerList_GoalUI"
 
@@ -19,9 +20,9 @@ local function uiText(key, fallback)
     return value
 end
 
-local function styleEntry(entry)
-    entry.backgroundColor = {r = 0.055, g = 0.052, b = 0.043, a = 1}
-    entry.borderColor = {r = 0.40, g = 0.36, b = 0.28, a = 1}
+local function styleEntry(entry, theme)
+    entry.backgroundColor = SPLThemes.copyColor(theme.input)
+    entry.borderColor = SPLThemes.copyColor(theme.inputBorder)
 end
 
 function SPLSubtaskEditor:initialise()
@@ -35,7 +36,7 @@ function SPLSubtaskEditor:createChildren()
     self.titleEntry:initialise()
     self.titleEntry:instantiate()
     self.titleEntry:setClearButton(true)
-    styleEntry(self.titleEntry)
+    styleEntry(self.titleEntry, self.theme)
     self:addChild(self.titleEntry)
 
     local controlsWidth = 184
@@ -47,6 +48,9 @@ function SPLSubtaskEditor:createChildren()
     self.goalList:initialise()
     self.goalList:instantiate()
     self.goalList.target = self
+    self.goalList.theme = self.theme
+    self.goalList.backgroundColor = SPLThemes.copyColor(self.theme.list)
+    self.goalList.borderColor = SPLThemes.copyColor(self.theme.listBorder)
     self.goalList.onmousedown = SPLSubtaskEditor.onGoalSelectionChanged
     self:addChild(self.goalList)
 
@@ -69,7 +73,7 @@ function SPLSubtaskEditor:createChildren()
     self.quantityEntry:initialise()
     self.quantityEntry:instantiate()
     self.quantityEntry:setOnlyNumbers(true)
-    styleEntry(self.quantityEntry)
+    styleEntry(self.quantityEntry, self.theme)
     self:addChild(self.quantityEntry)
 
     self.applyQuantityButton = ISButton:new(
@@ -157,8 +161,8 @@ function SPLSubtaskEditor:onGoalSelectionChanged()
         self.quantityEntry:setText(tostring(goal.quantity or 1))
     end
     self.quantityEntry:setEditable(goal ~= nil)
-    self.applyQuantityButton:setEnable(goal ~= nil)
-    self.removeGoalButton:setEnable(goal ~= nil)
+    SPLThemes.setButtonEnabled(self.applyQuantityButton, goal ~= nil)
+    SPLThemes.setButtonEnabled(self.removeGoalButton, goal ~= nil)
 end
 
 function SPLSubtaskEditor:onAddGoal()
@@ -208,8 +212,8 @@ function SPLSubtaskEditor:update()
     ISPanel.update(self)
     local hasTitle = SurvivalPlannerList.trim(self.titleEntry:getText()) ~= ""
     local hasGoals = #self.goals > 0
-    self.saveButton:setEnable(hasTitle)
-    self.autoButton:setEnable(hasGoals)
+    SPLThemes.setButtonEnabled(self.saveButton, hasTitle)
+    SPLThemes.setButtonEnabled(self.autoButton, hasGoals)
     if not hasGoals and self.autoComplete then
         self.autoComplete = false
         self.autoButton:setChecked(false)
@@ -246,19 +250,20 @@ function SPLSubtaskEditor:close()
 end
 
 function SPLSubtaskEditor:prerender()
-    self:drawRect(0, 0, self.width, self.height, 0.98, 0.115, 0.105, 0.085)
-    self:drawRect(0, 0, self.width, HEADER_HEIGHT, 1, 0.22, 0.20, 0.15)
-    self:drawRectBorder(0, 0, self.width, self.height, 1, 0.46, 0.41, 0.31)
-    self:drawTextCentre(self.windowTitle, self.width / 2, 10, 0.93, 0.90, 0.78, 1, UIFont.Medium)
-    self:drawText(uiText("SPL_Label_SubtaskTitle", "Subtask title"), PAD, 47, 0.78, 0.75, 0.65, 1, UIFont.Small)
-    self:drawText(uiText("SPL_Label_ItemGoals", "Item goals"), PAD, 115, 0.78, 0.75, 0.65, 1, UIFont.Small)
+    local theme = self.theme
+    self:drawRect(0, 0, self.width, self.height, theme.panel.a or 0.98, theme.panel.r, theme.panel.g, theme.panel.b)
+    self:drawRect(0, 0, self.width, HEADER_HEIGHT, 1, theme.header.r, theme.header.g, theme.header.b)
+    self:drawRectBorder(0, 0, self.width, self.height, 1, theme.panelBorder.r, theme.panelBorder.g, theme.panelBorder.b)
+    self:drawTextCentre(self.windowTitle, self.width / 2, 10, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
+    self:drawText(uiText("SPL_Label_SubtaskTitle", "Subtask title"), PAD, 47, theme.mutedText.r, theme.mutedText.g, theme.mutedText.b, 1, UIFont.Small)
+    self:drawText(uiText("SPL_Label_ItemGoals", "Item goals"), PAD, 115, theme.mutedText.r, theme.mutedText.g, theme.mutedText.b, 1, UIFont.Small)
     self:drawText(
         uiText("SPL_Label_Quantity", "Quantity"),
         self.quantityEntry.x,
         self.quantityEntry.y - 22,
-        0.78,
-        0.75,
-        0.65,
+        theme.mutedText.r,
+        theme.mutedText.g,
+        theme.mutedText.b,
         1,
         UIFont.Small
     )
@@ -267,9 +272,9 @@ function SPLSubtaskEditor:prerender()
             uiText("SPL_Label_NoGoals", "No item goals"),
             self.goalList.x + self.goalList.width / 2,
             self.goalList.y + 76,
-            0.48,
-            0.46,
-            0.40,
+            theme.subtleText.r,
+            theme.subtleText.g,
+            theme.subtleText.b,
             1,
             UIFont.Small
         )
@@ -278,9 +283,9 @@ function SPLSubtaskEditor:prerender()
         uiText("SPL_Hint_AutoTools", "Automatic completion requires a writing tool and an eraser."),
         PAD + 2,
         366,
-        0.58,
-        0.57,
-        0.49,
+        theme.subtleText.r,
+        theme.subtleText.g,
+        theme.subtleText.b,
         1,
         UIFont.Small
     )
@@ -293,6 +298,7 @@ function SPLSubtaskEditor:new(playerNum, taskId, subtask, saveTarget, onSave)
     local height = math.min(444, screenHeight - 60)
     local o = ISPanel.new(self, (screenWidth - width) / 2, (screenHeight - height) / 2, width, height)
     o.playerNum = playerNum or 0
+    o.theme = SPLThemes.get(o.playerNum)
     o.taskId = taskId
     o.subtask = subtask
     o.saveTarget = saveTarget
@@ -302,8 +308,8 @@ function SPLSubtaskEditor:new(playerNum, taskId, subtask, saveTarget, onSave)
         or uiText("SPL_Title_NewSubtask", "New subtask")
     o.goals = SPLGoalUI.copyGoals(subtask and subtask.goals or nil)
     o.autoComplete = subtask and subtask.autoComplete == true or false
-    o.backgroundColor = {r = 0.115, g = 0.105, b = 0.085, a = 0.98}
-    o.borderColor = {r = 0.46, g = 0.41, b = 0.31, a = 1}
+    o.backgroundColor = SPLThemes.copyColor(o.theme.panel)
+    o.borderColor = SPLThemes.copyColor(o.theme.panelBorder)
     o.moveWithMouse = true
     return o
 end

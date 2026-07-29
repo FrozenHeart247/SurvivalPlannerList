@@ -80,5 +80,20 @@
     "SPL_Map_CurrentPosition": "Current position",
     "SPL_Map_PlaceHint": "Click the map to set the target. Drag to pan; Esc cancels.",
     "SPL_Unit_Tiles": "tiles",
-    "SPL_Unit_Kilometers": "km"
+    "SPL_Unit_Kilometers": "km",
+    "SPL_Category_PlannerIcon": "Planner icon",
+    "SPL_Icon_Travel": "Travel",
+    "SPL_Icon_Animals": "Animals",
+    "SPL_Icon_Car": "Vehicle",
+    "SPL_Icon_Unknown": "Unknown",
+    "SPL_Icon_CheckLocation": "Check location",
+    "SPL_Tooltip_SearchIcons": "Search task icons and item icons",
+    "SPL_Title_Theme": "Color theme",
+    "SPL_Tooltip_Theme": "Change color theme",
+    "SPL_Theme_Notebook": "Notebook",
+    "SPL_Theme_Red": "Red",
+    "SPL_Theme_Green": "Green",
+    "SPL_Theme_Yellow": "Yellow",
+    "SPL_Theme_Purple": "Purple",
+    "SPL_Theme_Neutral": "Neutral"
 }

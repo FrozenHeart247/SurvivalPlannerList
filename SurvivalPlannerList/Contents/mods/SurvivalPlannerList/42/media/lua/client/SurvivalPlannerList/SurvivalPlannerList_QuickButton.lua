@@ -1,6 +1,7 @@
 require "ISUI/ISPanel"
 require "ISUI/ISLayoutManager"
 require "SurvivalPlannerList/SurvivalPlannerList_Core"
+require "SurvivalPlannerList/SurvivalPlannerList_Themes"
 require "SurvivalPlannerList/SurvivalPlannerList_MainPanel"
 
 SPLQuickButton = ISPanel:derive("SPLQuickButton")
@@ -34,8 +35,7 @@ end
 
 function SPLQuickButton:initialise()
     ISPanel.initialise(self)
-    local scriptItem = getScriptManager and getScriptManager():FindItem(SurvivalPlannerList.ITEM_TYPE) or nil
-    self.iconTexture = scriptItem and scriptItem.getNormalTexture and scriptItem:getNormalTexture() or nil
+    self.iconTexture = getTexture("media/textures/SPL_Icon_MainPlanner.png")
     if not self.iconTexture and getScriptManager then
         local notebook = getScriptManager():FindItem(SurvivalPlannerList.DEFAULT_ICON)
         self.iconTexture = notebook and notebook.getNormalTexture and notebook:getNormalTexture() or nil
@@ -138,22 +138,22 @@ function SPLQuickButton:onMouseUpOutside(x, y)
 end
 
 function SPLQuickButton:prerender()
+    local theme = SPLThemes.get(self.playerNum)
     local hovered = self:isMouseOver() or self.dragging
-    local alpha = hovered and 0.98 or 0.88
-    local borderR, borderG, borderB = 0.43, 0.50, 0.28
+    local alpha = hovered and 1 or 0.96
+    local border = theme.panelBorder
     if hovered then
-        borderR, borderG, borderB = 0.63, 0.72, 0.38
+        border = theme.accentHover
     end
 
-    self:drawRect(3, 4, self.width - 3, self.height - 3, 0.34, 0, 0, 0)
-    self:drawRect(0, 0, self.width - 3, self.height - 3, alpha, 0.14, 0.13, 0.10)
-    self:drawRect(0, 0, 4, self.height - 3, 1, 0.50, 0.61, 0.31)
-    self:drawRectBorder(0, 0, self.width - 3, self.height - 3, 1, borderR, borderG, borderB)
+    self:drawRect(0, 0, self.width, self.height, alpha, theme.header.r, theme.header.g, theme.header.b)
+    self:drawRect(0, 0, 4, self.height, 1, theme.accent.r, theme.accent.g, theme.accent.b)
+    self:drawRectBorder(0, 0, self.width, self.height, 1, border.r, border.g, border.b)
 
     if self.iconTexture then
-        self:drawTextureScaledAspect(self.iconTexture, 8, 6, 34, 34, 1, 1, 1, 1)
+        self:drawTextureScaledAspect(self.iconTexture, 5, 5, 40, 40, 1, 1, 1, 1)
     else
-        self:drawTextCentre("P", 24, 11, 0.87, 0.84, 0.68, 1, UIFont.Medium)
+        self:drawTextCentre("P", self.width / 2, 13, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
     end
 end
 
