@@ -5,7 +5,7 @@ module SurvivalPlannerList
         DisplayName = Survival Planner,
         DisplayCategory = Literature,
         ItemType = base:literature,
-        Weight = 1.5,
+        Weight = 0.1,
         Icon = SPL_Icon_MainPlanner,
         IconsForTexture = SPL_Icon_MainPlanner,
         StaticModel = EmptyNotebook,

@@ -9,6 +9,8 @@ SPLQuickButton.instances = SPLQuickButton.instances or {}
 
 local BUTTON_SIZE = 50
 local DRAG_THRESHOLD = 5
+local KEYBIND_SECTION = "[SurvivalPlannerList]"
+local KEYBIND_OPEN_PLANNER = "SurvivalPlannerList_OpenPlanner"
 
 local function uiText(key, fallback)
     local value = getText(key)
@@ -48,15 +50,16 @@ function SPLQuickButton:clampToPlayerScreen()
     self:setY(math.max(top, math.min(self.y, top + height - self.height)))
 end
 
-function SPLQuickButton:activate()
-    local player = getSpecificPlayer(self.playerNum)
+function SPLQuickButton.activateForPlayer(playerNum)
+    playerNum = playerNum or 0
+    local player = getSpecificPlayer(playerNum)
     if not player then
         return
     end
 
     local planner = SurvivalPlannerList.findPlayerItem(player, SurvivalPlannerList.isPlanner)
     if planner then
-        SurvivalPlannerList.openPlannerUI(self.playerNum, planner)
+        SurvivalPlannerList.openPlannerUI(playerNum, planner)
         return
     end
 
@@ -69,6 +72,10 @@ function SPLQuickButton:activate()
     elseif HaloTextHelper and HaloTextHelper.addText then
         HaloTextHelper.addText(player, message)
     end
+end
+
+function SPLQuickButton:activate()
+    SPLQuickButton.activateForPlayer(self.playerNum)
 end
 
 function SPLQuickButton:onMouseDown(x, y)
@@ -242,6 +249,62 @@ function SPLQuickButton.onResolutionChange()
     end
 end
 
+function SPLQuickButton.registerKeybind()
+    if SPLQuickButton.keybindRegistered then
+        return
+    end
+    local sectionExists = false
+    for _, binding in ipairs(keyBinding or {}) do
+        if binding.value == KEYBIND_OPEN_PLANNER then
+            SPLQuickButton.keybindRegistered = true
+            return
+        end
+        if binding.value == KEYBIND_SECTION then
+            sectionExists = true
+        end
+    end
+    if not sectionExists then
+        table.insert(keyBinding, {value = KEYBIND_SECTION})
+    end
+    table.insert(keyBinding, {
+        value = KEYBIND_OPEN_PLANNER,
+        key = Keyboard.KEY_K,
+    })
+    SPLQuickButton.keybindRegistered = true
+end
+
+function SPLQuickButton.onKeyPressed(key)
+    local core = getCore()
+    if not core or not core:isKey(KEYBIND_OPEN_PLANNER, key) then
+        return
+    end
+    if isGamePaused and isGamePaused() then
+        return
+    end
+
+    local player = getSpecificPlayer(0)
+    if not player or (player.isDead and player:isDead()) then
+        return
+    end
+
+    local panel = SPLMainPanel.instances[player:getPlayerNum() + 1]
+    if panel and panel:getIsVisible() then
+        return
+    end
+    if ISChat and ISChat.instance and ISChat.instance.focused then
+        return
+    end
+    if SPLRenamePlannerDialog and SPLRenamePlannerDialog.instance
+        and SPLRenamePlannerDialog.instance.nameEntry
+        and SPLRenamePlannerDialog.instance.nameEntry:isFocused() then
+        return
+    end
+
+    SPLQuickButton.activateForPlayer(player:getPlayerNum())
+end
+
+Events.OnGameBoot.Add(SPLQuickButton.registerKeybind)
+Events.OnKeyPressed.Add(SPLQuickButton.onKeyPressed)
 Events.OnCreatePlayer.Add(SPLQuickButton.onCreatePlayer)
 Events.OnGameStart.Add(SPLQuickButton.onGameStart)
 Events.OnPlayerDeath.Add(SPLQuickButton.onPlayerDeath)

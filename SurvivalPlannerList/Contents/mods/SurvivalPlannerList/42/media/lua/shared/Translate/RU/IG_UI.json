@@ -98,5 +98,7 @@
     "SPL_Theme_Green": "Зелёная",
     "SPL_Theme_Yellow": "Жёлтая",
     "SPL_Theme_Purple": "Фиолетовая",
-    "SPL_Theme_Neutral": "Нейтральная"
+    "SPL_Theme_Neutral": "Нейтральная",
+    "UI_optionscreen_binding_SurvivalPlannerList": "План выживания",
+    "UI_optionscreen_binding_SurvivalPlannerList_OpenPlanner": "Открыть планер"
 }

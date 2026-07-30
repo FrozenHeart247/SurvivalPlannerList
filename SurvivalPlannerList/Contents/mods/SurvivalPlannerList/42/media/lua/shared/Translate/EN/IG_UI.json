@@ -98,5 +98,7 @@
     "SPL_Theme_Green": "Green",
     "SPL_Theme_Yellow": "Yellow",
     "SPL_Theme_Purple": "Purple",
-    "SPL_Theme_Neutral": "Neutral"
+    "SPL_Theme_Neutral": "Neutral",
+    "UI_optionscreen_binding_SurvivalPlannerList": "Survival Planner",
+    "UI_optionscreen_binding_SurvivalPlannerList_OpenPlanner": "Open planner"
 }
