@@ -1,5 +1,9 @@
 {
     "Sandbox_SurvivalPlannerList": "Survival Planner",
     "Sandbox_SurvivalPlannerList_ArrivalRadius": "Arrival radius",
-    "Sandbox_SurvivalPlannerList_ArrivalRadius_tooltip": "An active plan with arrival auto-completion enabled is completed when the character comes within this many tiles of its map target. The character must be on the same floor and carry a writing tool and an eraser."
+    "Sandbox_SurvivalPlannerList_ArrivalRadius_tooltip": "An active plan with arrival auto-completion enabled is completed when the character comes within this many tiles of its map target. The character must be on the same floor and carry a writing tool and an eraser.",
+    "Sandbox_SurvivalPlannerList_InventoryScanInterval": "Inventory scan interval (seconds)",
+    "Sandbox_SurvivalPlannerList_InventoryScanInterval_tooltip": "How often Survival Planner scans the character's inventory and carried bags for planners, tools, and tracked item quantities. Lower values react faster but use more CPU.",
+    "Sandbox_SurvivalPlannerList_NavigationRefreshInterval": "Navigation refresh interval (seconds)",
+    "Sandbox_SurvivalPlannerList_NavigationRefreshInterval_tooltip": "How often Survival Planner adds, removes, or updates navigation targets and widgets. Arrow movement and rotation remain smooth between refreshes."
 }

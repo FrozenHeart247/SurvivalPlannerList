@@ -101,9 +101,8 @@ end
 
 function SPLMapIntegration.getTargets(playerNum)
     playerNum = playerNum or 0
-    local now = getTimestampMs and getTimestampMs() or 0
     local cached = SPLMapIntegration.targetsByPlayer[playerNum + 1]
-    if cached and (now - cached.at) < 1000 then
+    if cached then
         return cached.values
     end
 

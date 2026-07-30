@@ -9,3 +9,23 @@ option SurvivalPlannerList.ArrivalRadius
     page = SurvivalPlannerList,
     translation = SurvivalPlannerList_ArrivalRadius,
 }
+
+option SurvivalPlannerList.InventoryScanInterval
+{
+    type = double,
+    min = 0.25,
+    max = 5.0,
+    default = 1.0,
+    page = SurvivalPlannerList,
+    translation = SurvivalPlannerList_InventoryScanInterval,
+}
+
+option SurvivalPlannerList.NavigationRefreshInterval
+{
+    type = double,
+    min = 0.10,
+    max = 2.0,
+    default = 0.35,
+    page = SurvivalPlannerList,
+    translation = SurvivalPlannerList_NavigationRefreshInterval,
+}

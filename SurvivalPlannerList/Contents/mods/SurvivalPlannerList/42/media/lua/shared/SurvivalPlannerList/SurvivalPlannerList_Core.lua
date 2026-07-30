@@ -1081,6 +1081,52 @@ end
 SurvivalPlannerList._trackingCache = SurvivalPlannerList._trackingCache or {}
 SurvivalPlannerList._trackingRevision = SurvivalPlannerList._trackingRevision or 0
 
+local function getSnapshotPlanners(player)
+    local automation = SurvivalPlannerList.Automation
+    if not player or not automation or not automation.getSnapshot then
+        return nil
+    end
+    local playerNum = player.getPlayerNum and player:getPlayerNum() or 0
+    local snapshot = automation.getSnapshot(playerNum)
+    return snapshot and type(snapshot.planners) == "table" and snapshot.planners or nil
+end
+
+local function addTrackedTargetsFromPlanner(targets, item)
+    if not SurvivalPlannerList.isPlanner(item) then
+        return
+    end
+
+    local data = SurvivalPlannerList.getData(item)
+    if not data then
+        return
+    end
+    for _, trackedItem in ipairs(data.trackedItems) do
+        targets[trackedItem.fullType] = trackedItem.name
+    end
+    for _, task in ipairs(data.tasks) do
+        if task.status == SurvivalPlannerList.STATUS_ACTIVE then
+            for _, goal in ipairs(task.goals or {}) do
+                targets[goal.fullType] = goal.name or task.title
+            end
+            for _, subtask in ipairs(task.subtasks or {}) do
+                if not subtask.done then
+                    for _, goal in ipairs(subtask.goals or {}) do
+                        targets[goal.fullType] = goal.name or subtask.title
+                    end
+                end
+            end
+        end
+    end
+end
+
+function SurvivalPlannerList.getTrackedTargetsFromPlanners(planners)
+    local targets = {}
+    for _, item in ipairs(planners or {}) do
+        addTrackedTargetsFromPlanner(targets, item)
+    end
+    return targets
+end
+
 function SurvivalPlannerList.invalidateTrackingCache()
     SurvivalPlannerList._trackingCache = {}
     SurvivalPlannerList._trackingRevision = SurvivalPlannerList._trackingRevision + 1
@@ -1098,32 +1144,17 @@ function SurvivalPlannerList.getTrackedTargetsForPlayer(player)
         return cached.targets
     end
 
-    local targets = {}
-    SurvivalPlannerList.visitPlayerInventory(player, function(item)
-        if SurvivalPlannerList.isPlanner(item) then
-            local data = SurvivalPlannerList.getData(item)
-            if data then
-                for _, trackedItem in ipairs(data.trackedItems) do
-                    targets[trackedItem.fullType] = trackedItem.name
-                end
-                for _, task in ipairs(data.tasks) do
-                    if task.status == SurvivalPlannerList.STATUS_ACTIVE then
-                        for _, goal in ipairs(task.goals or {}) do
-                            targets[goal.fullType] = goal.name or task.title
-                        end
-                        for _, subtask in ipairs(task.subtasks or {}) do
-                            if not subtask.done then
-                                for _, goal in ipairs(subtask.goals or {}) do
-                                    targets[goal.fullType] = goal.name or subtask.title
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-        return nil
-    end)
+    local planners = getSnapshotPlanners(player)
+    local targets
+    if planners then
+        targets = SurvivalPlannerList.getTrackedTargetsFromPlanners(planners)
+    else
+        targets = {}
+        SurvivalPlannerList.visitPlayerInventory(player, function(item)
+            addTrackedTargetsFromPlanner(targets, item)
+            return nil
+        end)
+    end
 
     SurvivalPlannerList._trackingCache[playerNum + 1] = {
         at = now,
@@ -1132,41 +1163,52 @@ function SurvivalPlannerList.getTrackedTargetsForPlayer(player)
     return targets
 end
 
-function SurvivalPlannerList.collectNavigationTargets(player)
+function SurvivalPlannerList.collectNavigationTargetsFromPlanners(planners)
     local targets = {}
+    for _, item in ipairs(planners or {}) do
+        if SurvivalPlannerList.isPlanner(item) then
+            local data = SurvivalPlannerList.getData(item)
+            if data then
+                for _, task in ipairs(data.tasks or {}) do
+                    local target = SurvivalPlannerList.getTaskMapTarget(task)
+                    if task.navigationEnabled == true
+                        and task.status ~= SurvivalPlannerList.STATUS_DONE
+                        and target then
+                        table.insert(targets, {
+                            key = tostring(data.plannerId) .. ":" .. tostring(task.id),
+                            plannerId = data.plannerId,
+                            planner = item,
+                            taskId = task.id,
+                            task = task,
+                            target = target,
+                        })
+                    end
+                end
+            end
+        end
+    end
+    return targets
+end
+
+function SurvivalPlannerList.collectNavigationTargets(player)
     if not player then
-        return targets
+        return {}
     end
 
+    local planners = getSnapshotPlanners(player)
+    if planners then
+        return SurvivalPlannerList.collectNavigationTargetsFromPlanners(planners)
+    end
+
+    planners = {}
     SurvivalPlannerList.visitPlayerInventory(player, function(item)
-        if not SurvivalPlannerList.isPlanner(item) then
-            return nil
-        end
-
-        local data = SurvivalPlannerList.getData(item)
-        if not data then
-            return nil
-        end
-
-        for _, task in ipairs(data.tasks or {}) do
-            local target = SurvivalPlannerList.getTaskMapTarget(task)
-            if task.navigationEnabled == true
-                and task.status ~= SurvivalPlannerList.STATUS_DONE
-                and target then
-                table.insert(targets, {
-                    key = tostring(data.plannerId) .. ":" .. tostring(task.id),
-                    plannerId = data.plannerId,
-                    planner = item,
-                    taskId = task.id,
-                    task = task,
-                    target = target,
-                })
-            end
+        if SurvivalPlannerList.isPlanner(item) then
+            table.insert(planners, item)
         end
         return nil
     end)
 
-    return targets
+    return SurvivalPlannerList.collectNavigationTargetsFromPlanners(planners)
 end
 
 return SurvivalPlannerList

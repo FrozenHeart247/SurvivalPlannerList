@@ -1724,7 +1724,12 @@ end
 
 function SPLMainPanel:updateEditAccess()
     local player = getSpecificPlayer(self.playerNum)
-    local access, hasWritingTool, hasEraser = SurvivalPlannerList.getEditAccess(player)
+    local snapshot = SurvivalPlannerList.Automation.getSnapshot(self.playerNum)
+    if not snapshot and player then
+        snapshot = SurvivalPlannerList.Automation.scanPlayer(player)
+    end
+    local access, hasWritingTool, hasEraser =
+        SurvivalPlannerList.Automation.getEditAccess(self.playerNum)
     if access ~= self.editAccess or hasWritingTool ~= self.hasWritingTool or hasEraser ~= self.hasEraser then
         self.editAccess = access
         self.hasWritingTool = hasWritingTool

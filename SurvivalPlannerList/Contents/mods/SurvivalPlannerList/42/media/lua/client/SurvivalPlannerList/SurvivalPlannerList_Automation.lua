@@ -3,7 +3,9 @@ require "SurvivalPlannerList/SurvivalPlannerList_Core"
 SurvivalPlannerList.Automation = SurvivalPlannerList.Automation or {}
 
 local Automation = SurvivalPlannerList.Automation
-local CHECK_INTERVAL_MS = 900
+local DEFAULT_SCAN_INTERVAL_SECONDS = 1.0
+local MIN_SCAN_INTERVAL_SECONDS = 0.25
+local MAX_SCAN_INTERVAL_SECONDS = 5.0
 local DEFAULT_ARRIVAL_RADIUS = 5
 local MAX_ARRIVAL_RADIUS = 50
 
@@ -38,6 +40,17 @@ local function getArrivalRadius()
         1,
         math.min(MAX_ARRIVAL_RADIUS, tonumber(options and options.ArrivalRadius) or DEFAULT_ARRIVAL_RADIUS)
     )
+end
+
+local function getScanIntervalMs()
+    local options = SandboxVars and SandboxVars.SurvivalPlannerList or nil
+    local seconds = tonumber(options and options.InventoryScanInterval)
+        or DEFAULT_SCAN_INTERVAL_SECONDS
+    seconds = math.max(
+        MIN_SCAN_INTERVAL_SECONDS,
+        math.min(MAX_SCAN_INTERVAL_SECONDS, seconds)
+    )
+    return math.floor(seconds * 1000)
 end
 
 local function isPlayerAtTarget(player, target, radius)
@@ -194,6 +207,7 @@ function Automation.scanPlayer(player)
     Automation.snapshots[playerNum + 1] = {
         at = timestampMs(),
         counts = counts,
+        planners = planners,
         hasWritingTool = hasWritingTool,
         hasEraser = hasEraser,
     }
@@ -238,6 +252,25 @@ function Automation.getCounts(playerNum)
     return snapshot and snapshot.counts or {}
 end
 
+function Automation.getPlanners(playerNum)
+    local snapshot = Automation.getSnapshot(playerNum)
+    return snapshot and snapshot.planners or {}
+end
+
+function Automation.getEditAccess(playerNum)
+    local snapshot = Automation.getSnapshot(playerNum)
+    if not snapshot then
+        return false, false, false
+    end
+    return snapshot.hasWritingTool and snapshot.hasEraser,
+        snapshot.hasWritingTool == true,
+        snapshot.hasEraser == true
+end
+
+function Automation.getScanIntervalMs()
+    return getScanIntervalMs()
+end
+
 function Automation.onPlayerUpdate(player)
     if not player then
         return
@@ -245,7 +278,8 @@ function Automation.onPlayerUpdate(player)
     local playerNum = player.getPlayerNum and player:getPlayerNum() or 0
     local index = playerNum + 1
     local now = timestampMs()
-    if Automation.lastChecks[index] and now - Automation.lastChecks[index] < CHECK_INTERVAL_MS then
+    if Automation.lastChecks[index]
+        and now - Automation.lastChecks[index] < getScanIntervalMs() then
         return
     end
     Automation.lastChecks[index] = now

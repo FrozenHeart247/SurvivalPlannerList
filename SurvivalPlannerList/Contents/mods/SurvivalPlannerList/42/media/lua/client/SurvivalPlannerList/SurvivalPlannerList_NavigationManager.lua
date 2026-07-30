@@ -6,7 +6,9 @@ SPLNavigationManager = SPLNavigationManager or {}
 SPLNavigationManager.widgetsByPlayer = SPLNavigationManager.widgetsByPlayer or {}
 SPLNavigationManager.lastSyncByPlayer = SPLNavigationManager.lastSyncByPlayer or {}
 
-local SYNC_INTERVAL_MS = 350
+local DEFAULT_REFRESH_INTERVAL_SECONDS = 0.35
+local MIN_REFRESH_INTERVAL_SECONDS = 0.10
+local MAX_REFRESH_INTERVAL_SECONDS = 2.0
 local LAYOUT_KEY = "SurvivalPlannerListNavigationLayout"
 local NAVIGATION_WIDGET_SIZE = 80
 
@@ -15,6 +17,17 @@ local function timestampMs()
         return getTimestampMs()
     end
     return 0
+end
+
+local function getRefreshIntervalMs()
+    local options = SandboxVars and SandboxVars.SurvivalPlannerList or nil
+    local seconds = tonumber(options and options.NavigationRefreshInterval)
+        or DEFAULT_REFRESH_INTERVAL_SECONDS
+    seconds = math.max(
+        MIN_REFRESH_INTERVAL_SECONDS,
+        math.min(MAX_REFRESH_INTERVAL_SECONDS, seconds)
+    )
+    return math.floor(seconds * 1000)
 end
 
 local function playerScreenBounds(playerNum)
@@ -103,7 +116,8 @@ function SPLNavigationManager.syncPlayer(playerNum, force)
 
     local index = playerNum + 1
     local now = timestampMs()
-    if not force and now - (SPLNavigationManager.lastSyncByPlayer[index] or -1000) < SYNC_INTERVAL_MS then
+    if not force
+        and now - (SPLNavigationManager.lastSyncByPlayer[index] or -1000) < getRefreshIntervalMs() then
         return
     end
     SPLNavigationManager.lastSyncByPlayer[index] = now
@@ -198,7 +212,7 @@ end
 function SPLNavigationManager.onContainerUpdate()
     local count = getNumActivePlayers and getNumActivePlayers() or 1
     for playerNum = 0, count - 1 do
-        SPLNavigationManager.syncPlayer(playerNum, true)
+        SPLNavigationManager.syncPlayer(playerNum, false)
     end
 end
 
