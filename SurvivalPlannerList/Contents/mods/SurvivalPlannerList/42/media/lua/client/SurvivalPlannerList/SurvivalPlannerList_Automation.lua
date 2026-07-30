@@ -4,6 +4,8 @@ SurvivalPlannerList.Automation = SurvivalPlannerList.Automation or {}
 
 local Automation = SurvivalPlannerList.Automation
 local CHECK_INTERVAL_MS = 900
+local DEFAULT_ARRIVAL_RADIUS = 5
+local MAX_ARRIVAL_RADIUS = 50
 
 Automation.snapshots = Automation.snapshots or {}
 Automation.lastChecks = Automation.lastChecks or {}
@@ -30,7 +32,37 @@ local function allSubtasksDone(task)
     return true
 end
 
-function Automation.evaluatePlanner(planner, counts, canWrite)
+local function getArrivalRadius()
+    local options = SandboxVars and SandboxVars.SurvivalPlannerList or nil
+    return math.max(
+        1,
+        math.min(MAX_ARRIVAL_RADIUS, tonumber(options and options.ArrivalRadius) or DEFAULT_ARRIVAL_RADIUS)
+    )
+end
+
+local function isPlayerAtTarget(player, target, radius)
+    if not player or type(target) ~= "table" then
+        return false
+    end
+
+    local targetX = tonumber(target.x)
+    local targetY = tonumber(target.y)
+    if not targetX or not targetY then
+        return false
+    end
+
+    local playerZ = math.floor(tonumber(player:getZ()) or 0)
+    local targetZ = math.floor(tonumber(target.z) or 0)
+    if playerZ ~= targetZ then
+        return false
+    end
+
+    local dx = player:getX() - targetX
+    local dy = player:getY() - targetY
+    return dx * dx + dy * dy <= radius * radius
+end
+
+function Automation.evaluatePlanner(planner, counts, canWrite, player, arrivalRadius)
     local data = SurvivalPlannerList.getData(planner)
     if not data or not canWrite then
         return false, {}
@@ -40,6 +72,7 @@ function Automation.evaluatePlanner(planner, counts, canWrite)
     local completedTitles = {}
     local completedTaskIds = {}
     local completedAt = SurvivalPlannerList.now()
+    arrivalRadius = tonumber(arrivalRadius) or getArrivalRadius()
 
     for _, task in ipairs(data.tasks or {}) do
         if task.status == SurvivalPlannerList.STATUS_ACTIVE then
@@ -55,14 +88,19 @@ function Automation.evaluatePlanner(planner, counts, canWrite)
                 end
             end
 
+            local mapTarget = SurvivalPlannerList.getTaskMapTarget(task)
+            local completedByArrival = task.autoCompleteOnArrival == true
+                and mapTarget
+                and isPlayerAtTarget(player, mapTarget, arrivalRadius)
             local hasConditions = #(task.goals or {}) > 0 or #(task.subtasks or {}) > 0
-            if task.autoComplete
+            local completedByItems = task.autoComplete
                 and hasConditions
                 and SurvivalPlannerList.areGoalsMet(task.goals, counts)
-                and allSubtasksDone(task) then
+                and allSubtasksDone(task)
+            if completedByArrival or completedByItems then
                 task.status = SurvivalPlannerList.STATUS_DONE
                 task.completedAt = completedAt
-                task.completedBy = "automatic"
+                task.completedBy = completedByArrival and "arrival" or "automatic"
                 task.navigationEnabled = false
                 table.insert(completedTitles, task.title)
                 table.insert(completedTaskIds, task.id)
@@ -163,8 +201,15 @@ function Automation.scanPlayer(player)
     local anyChanged = false
     local completedTitles = {}
     local canWrite = hasWritingTool and hasEraser
+    local arrivalRadius = getArrivalRadius()
     for _, planner in ipairs(planners) do
-        local changed, plannerCompletions = Automation.evaluatePlanner(planner, counts, canWrite)
+        local changed, plannerCompletions = Automation.evaluatePlanner(
+            planner,
+            counts,
+            canWrite,
+            player,
+            arrivalRadius
+        )
         if changed then
             SurvivalPlannerList.save(planner)
             anyChanged = true

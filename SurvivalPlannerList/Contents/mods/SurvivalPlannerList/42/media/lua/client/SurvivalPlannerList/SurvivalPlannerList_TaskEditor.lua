@@ -104,12 +104,14 @@ function SPLTaskEditor:createChildren()
     SPLGoalUI.styleButton(self.clearMapButton, "danger")
     self:addChild(self.clearMapButton)
 
+    local mapCheckGap = 10
+    local mapCheckWidth = math.floor((self.width - PAD * 2 - mapCheckGap) / 2)
     self.navigationButton = SPLCheckButton:new(
         PAD,
         mapPanelY + 72,
-        self.width - PAD * 2,
+        mapCheckWidth,
         30,
-        uiText("SPL_Check_TrackTask", "Show map marker and direction indicator"),
+        uiText("SPL_Check_TrackTask", "Show map navigation"),
         self,
         SPLTaskEditor.onToggleNavigation,
         self.navigationEnabled
@@ -117,6 +119,20 @@ function SPLTaskEditor:createChildren()
     self.navigationButton:initialise()
     self.navigationButton:instantiate()
     self:addChild(self.navigationButton)
+
+    self.arrivalButton = SPLCheckButton:new(
+        self.navigationButton:getRight() + mapCheckGap,
+        mapPanelY + 72,
+        self.width - PAD - self.navigationButton:getRight() - mapCheckGap,
+        30,
+        uiText("SPL_Check_AutoArrival", "Auto-complete on arrival"),
+        self,
+        SPLTaskEditor.onToggleArrival,
+        self.autoCompleteOnArrival
+    )
+    self.arrivalButton:initialise()
+    self.arrivalButton:instantiate()
+    self:addChild(self.arrivalButton)
 
     local controlsWidth = 190
     local goalListX = PAD
@@ -318,7 +334,9 @@ function SPLTaskEditor:onClearMapTarget()
     self.mapTargets = {}
     self.trackedTargetId = nil
     self.navigationEnabled = false
+    self.autoCompleteOnArrival = false
     self.navigationButton:setChecked(false)
+    self.arrivalButton:setChecked(false)
 end
 
 function SPLTaskEditor:onToggleNavigation()
@@ -327,6 +345,14 @@ function SPLTaskEditor:onToggleNavigation()
     end
     self.navigationEnabled = not self.navigationEnabled
     self.navigationButton:setChecked(self.navigationEnabled)
+end
+
+function SPLTaskEditor:onToggleArrival()
+    if not self:getMapTarget() or self.status == SurvivalPlannerList.STATUS_DONE then
+        return
+    end
+    self.autoCompleteOnArrival = not self.autoCompleteOnArrival
+    self.arrivalButton:setChecked(self.autoCompleteOnArrival)
 end
 
 function SPLTaskEditor:onAddGoal()
@@ -381,10 +407,15 @@ function SPLTaskEditor:update()
     local hasMapTarget = self:getMapTarget() ~= nil
     local canNavigate = hasMapTarget and self.status ~= SurvivalPlannerList.STATUS_DONE
     SPLThemes.setButtonEnabled(self.navigationButton, canNavigate)
+    SPLThemes.setButtonEnabled(self.arrivalButton, canNavigate)
     SPLThemes.setButtonEnabled(self.clearMapButton, hasMapTarget)
     if not canNavigate and self.navigationEnabled then
         self.navigationEnabled = false
         self.navigationButton:setChecked(false)
+    end
+    if not canNavigate and self.autoCompleteOnArrival then
+        self.autoCompleteOnArrival = false
+        self.arrivalButton:setChecked(false)
     end
     if not hasCondition and self.autoComplete then
         self.autoComplete = false
@@ -405,6 +436,7 @@ function SPLTaskEditor:onSave()
         mapTargets = SurvivalPlannerList.copyMapTargets(self.mapTargets),
         trackedTargetId = self.trackedTargetId,
         navigationEnabled = self.navigationEnabled,
+        autoCompleteOnArrival = self.autoCompleteOnArrival,
         autoComplete = self.autoComplete,
         status = self.status,
     }
@@ -511,6 +543,7 @@ function SPLTaskEditor:new(playerNum, task, status, saveTarget, onSave)
     o.mapTargets = SurvivalPlannerList.copyMapTargets(task and task.mapTargets or nil)
     o.trackedTargetId = task and task.trackedTargetId or nil
     o.navigationEnabled = task and task.navigationEnabled == true or false
+    o.autoCompleteOnArrival = task and task.autoCompleteOnArrival == true or false
     o.autoComplete = task and task.autoComplete == true or false
     o.hasSubtasks = task and #(task.subtasks or {}) > 0 or false
     o.backgroundColor = SPLThemes.copyColor(o.theme.panel)

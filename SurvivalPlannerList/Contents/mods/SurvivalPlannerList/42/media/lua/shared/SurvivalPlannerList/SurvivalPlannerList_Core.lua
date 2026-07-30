@@ -2,7 +2,7 @@ SurvivalPlannerList = SurvivalPlannerList or {}
 
 SurvivalPlannerList.ID = "SurvivalPlannerList"
 SurvivalPlannerList.ITEM_TYPE = "SurvivalPlannerList.SurvivalPlanner"
-SurvivalPlannerList.DATA_VERSION = 3
+SurvivalPlannerList.DATA_VERSION = 4
 SurvivalPlannerList.DEFAULT_ICON = "Base.Notebook"
 SurvivalPlannerList.STATUS_ACTIVE = "active"
 SurvivalPlannerList.STATUS_PLANNED = "planned"
@@ -400,6 +400,7 @@ local function normalizeTask(data, raw)
         mapTargets = normalizeMapTargets(data, raw.mapTargets, raw.mapTarget),
         trackedTargetId = tonumber(raw.trackedTargetId),
         navigationEnabled = raw.navigationEnabled == true,
+        autoCompleteOnArrival = raw.autoCompleteOnArrival == true,
         subtasks = {},
     }
 
@@ -415,6 +416,9 @@ local function normalizeTask(data, raw)
     end
     if task.status == SurvivalPlannerList.STATUS_DONE or not task.trackedTargetId then
         task.navigationEnabled = false
+    end
+    if not task.trackedTargetId then
+        task.autoCompleteOnArrival = false
     end
 
     if #task.goals == 0 and trim(raw.targetType) ~= "" then
@@ -589,6 +593,7 @@ function SurvivalPlannerList.addTask(planner, values)
         mapTargets = normalizeMapTargets(data, values.mapTargets, values.mapTarget),
         trackedTargetId = tonumber(values.trackedTargetId),
         navigationEnabled = values.navigationEnabled == true,
+        autoCompleteOnArrival = values.autoCompleteOnArrival == true,
         autoComplete = values.autoComplete == true,
         createdAt = safeNow(),
         completedAt = nil,
@@ -606,6 +611,7 @@ function SurvivalPlannerList.addTask(planner, values)
     else
         task.trackedTargetId = nil
         task.navigationEnabled = false
+        task.autoCompleteOnArrival = false
     end
     table.insert(data.tasks, 1, task)
     SurvivalPlannerList.save(planner)
@@ -641,6 +647,8 @@ function SurvivalPlannerList.updateTask(planner, taskId, values)
         or (task.mapTargets[1] and task.mapTargets[1].id or nil)
     task.navigationEnabled = values.navigationEnabled == true
         and task.status ~= SurvivalPlannerList.STATUS_DONE
+        and task.trackedTargetId ~= nil
+    task.autoCompleteOnArrival = values.autoCompleteOnArrival == true
         and task.trackedTargetId ~= nil
     task.autoComplete = values.autoComplete == true
     return SurvivalPlannerList.save(planner)
