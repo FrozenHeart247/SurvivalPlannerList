@@ -77,7 +77,7 @@ function SPLRenamePlannerDialog:createChildren()
         buttonY,
         buttonWidth,
         BUTTON_HEIGHT,
-        uiText("SPL_Button_Cancel", "Cancel"),
+        uiText("IGUI_SPL_Button_Cancel", "Cancel"),
         self,
         SPLRenamePlannerDialog.close
     )
@@ -90,7 +90,7 @@ function SPLRenamePlannerDialog:createChildren()
         buttonY,
         self.width - DIALOG_PAD * 3 - buttonWidth,
         BUTTON_HEIGHT,
-        uiText("SPL_Button_Save", "Save"),
+        uiText("IGUI_SPL_Button_Save", "Save"),
         self,
         SPLRenamePlannerDialog.onSave
     )
@@ -151,7 +151,7 @@ function SPLRenamePlannerDialog:prerender()
         theme.headerBorder.b
     )
     self:drawTextCentre(
-        uiText("SPL_Title_RenamePlanner", "Rename planner"),
+        uiText("IGUI_SPL_Title_RenamePlanner", "Rename planner"),
         self.width / 2,
         12,
         theme.text.r,
@@ -161,7 +161,7 @@ function SPLRenamePlannerDialog:prerender()
         UIFont.Medium
     )
     self:drawText(
-        uiText("SPL_Label_PlannerName", "Planner name"),
+        uiText("IGUI_SPL_Label_PlannerName", "Planner name"),
         DIALOG_PAD,
         49,
         theme.mutedText.r,

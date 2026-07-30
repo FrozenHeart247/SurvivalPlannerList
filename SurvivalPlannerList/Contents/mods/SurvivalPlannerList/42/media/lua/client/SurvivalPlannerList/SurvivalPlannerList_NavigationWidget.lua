@@ -39,9 +39,9 @@ end
 
 local function formatDistance(distance)
     if distance >= 1000 then
-        return string.format("%.1f %s", distance / 1000, uiText("SPL_Unit_Kilometers", "km"))
+        return string.format("%.1f %s", distance / 1000, uiText("IGUI_SPL_Unit_Kilometers", "km"))
     end
-    return string.format("%d %s", math.floor(distance + 0.5), uiText("SPL_Unit_Tiles", "tiles"))
+    return string.format("%d %s", math.floor(distance + 0.5), uiText("IGUI_SPL_Unit_Tiles", "tiles"))
 end
 
 local function renderRotatedTexture(texture, centerX, centerY, width, height, angle, r, g, b, a)
@@ -218,7 +218,7 @@ function SPLNavigationWidget:render()
         return
     end
 
-    local title = self.taskTitle or uiText("SPL_Map_Target", "Map target")
+    local title = self.taskTitle or uiText("IGUI_SPL_Map_Target", "Map target")
     local width = 260
     local wrapped = getTextManager():WrapText(UIFont.Small, title, width - 22, 2, "...")
     local tooltipHeight = getTextManager():getFontHeight(UIFont.Small) * 3 + 20

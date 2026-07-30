@@ -145,12 +145,12 @@ local function showCompletionHalo(player, completedTitles)
     end
 
     local message
-    local oneCompleted = getText("SPL_Auto_TaskCompleted")
-    local manyCompleted = getText("SPL_Auto_TasksCompleted")
-    if not oneCompleted or oneCompleted == "SPL_Auto_TaskCompleted" then
+    local oneCompleted = getText("IGUI_SPL_Auto_TaskCompleted")
+    local manyCompleted = getText("IGUI_SPL_Auto_TasksCompleted")
+    if not oneCompleted or oneCompleted == "IGUI_SPL_Auto_TaskCompleted" then
         oneCompleted = "Plan completed"
     end
-    if not manyCompleted or manyCompleted == "SPL_Auto_TasksCompleted" then
+    if not manyCompleted or manyCompleted == "IGUI_SPL_Auto_TasksCompleted" then
         manyCompleted = "Plans completed"
     end
     if #completedTitles == 1 then

@@ -3,14 +3,13 @@ require "ISUI/ISLayoutManager"
 require "SurvivalPlannerList/SurvivalPlannerList_Core"
 require "SurvivalPlannerList/SurvivalPlannerList_Themes"
 require "SurvivalPlannerList/SurvivalPlannerList_MainPanel"
+require "SurvivalPlannerList/SurvivalPlannerList_ModOptions"
 
 SPLQuickButton = ISPanel:derive("SPLQuickButton")
 SPLQuickButton.instances = SPLQuickButton.instances or {}
 
 local BUTTON_SIZE = 50
 local DRAG_THRESHOLD = 5
-local KEYBIND_SECTION = "[SurvivalPlannerList]"
-local KEYBIND_OPEN_PLANNER = "SurvivalPlannerList_OpenPlanner"
 
 local function uiText(key, fallback)
     local value = getText(key)
@@ -64,7 +63,7 @@ function SPLQuickButton.activateForPlayer(playerNum)
     end
 
     local message = uiText(
-        "SPL_Message_PlannerNotCarried",
+        "IGUI_SPL_Message_PlannerNotCarried",
         "No Survival Planner found in your inventory or bags."
     )
     if player.setHaloNote then
@@ -249,33 +248,10 @@ function SPLQuickButton.onResolutionChange()
     end
 end
 
-function SPLQuickButton.registerKeybind()
-    if SPLQuickButton.keybindRegistered then
-        return
-    end
-    local sectionExists = false
-    for _, binding in ipairs(keyBinding or {}) do
-        if binding.value == KEYBIND_OPEN_PLANNER then
-            SPLQuickButton.keybindRegistered = true
-            return
-        end
-        if binding.value == KEYBIND_SECTION then
-            sectionExists = true
-        end
-    end
-    if not sectionExists then
-        table.insert(keyBinding, {value = KEYBIND_SECTION})
-    end
-    table.insert(keyBinding, {
-        value = KEYBIND_OPEN_PLANNER,
-        key = Keyboard.KEY_K,
-    })
-    SPLQuickButton.keybindRegistered = true
-end
-
 function SPLQuickButton.onKeyPressed(key)
-    local core = getCore()
-    if not core or not core:isKey(KEYBIND_OPEN_PLANNER, key) then
+    local keyOption = SPLModOptions and SPLModOptions.openPlannerKey
+    local configuredKey = keyOption and keyOption:getValue() or Keyboard.KEY_K
+    if key ~= configuredKey then
         return
     end
     if isGamePaused and isGamePaused() then
@@ -303,7 +279,6 @@ function SPLQuickButton.onKeyPressed(key)
     SPLQuickButton.activateForPlayer(player:getPlayerNum())
 end
 
-Events.OnGameBoot.Add(SPLQuickButton.registerKeybind)
 Events.OnKeyPressed.Add(SPLQuickButton.onKeyPressed)
 Events.OnCreatePlayer.Add(SPLQuickButton.onCreatePlayer)
 Events.OnGameStart.Add(SPLQuickButton.onGameStart)

@@ -206,13 +206,13 @@ end
 
 local function taskStatusText(status)
     if status == SurvivalPlannerList.STATUS_ACTIVE then
-        return uiText("SPL_Tab_Active", "Active")
+        return uiText("IGUI_SPL_Tab_Active", "Active")
     elseif status == SurvivalPlannerList.STATUS_PLANNED then
-        return uiText("SPL_Tab_Planned", "Planned")
+        return uiText("IGUI_SPL_Tab_Planned", "Planned")
     elseif status == SurvivalPlannerList.STATUS_DONE then
-        return uiText("SPL_Tab_Done", "Done")
+        return uiText("IGUI_SPL_Tab_Done", "Done")
     end
-    return uiText("SPL_Tab_Tracking", "Item Tracking")
+    return uiText("IGUI_SPL_Tab_Tracking", "Item Tracking")
 end
 
 local function calculateTaskLayout(task, listWidth)
@@ -692,7 +692,7 @@ function SPLThemeMenu:prerender()
     local theme = self.theme
     self:drawRect(1, 1, self.width - 2, 30, 1, theme.header.r, theme.header.g, theme.header.b)
     self:drawText(
-        uiText("SPL_Title_Theme", "Color theme"),
+        uiText("IGUI_SPL_Title_Theme", "Color theme"),
         10,
         8,
         theme.text.r,
@@ -736,7 +736,7 @@ function SPLConfirmDialog:createChildren()
             buttonY,
             DIALOG_BUTTON_WIDTH,
             DIALOG_BUTTON_HEIGHT,
-            uiText("SPL_Button_Cancel", "Cancel"),
+            uiText("IGUI_SPL_Button_Cancel", "Cancel"),
             self,
             SPLConfirmDialog.onClick
         )
@@ -757,7 +757,7 @@ function SPLConfirmDialog:createChildren()
             buttonY,
             DIALOG_BUTTON_WIDTH,
             DIALOG_BUTTON_HEIGHT,
-            uiText("SPL_Button_Confirm", "Confirm"),
+            uiText("IGUI_SPL_Button_Confirm", "Confirm"),
             self,
             SPLConfirmDialog.onClick
         )
@@ -899,8 +899,8 @@ function SPLConfirmDialog:new(playerNum, message, yesno, target, callback, dange
     o.cardY = (screenHeight - cardHeight) / 2
     o.wrappedText = wrappedText
     o.titleText = yesno
-        and uiText("SPL_Title_Confirmation", "Confirm action")
-        or uiText("SPL_Title_Notice", "Notice")
+        and uiText("IGUI_SPL_Title_Confirmation", "Confirm action")
+        or uiText("IGUI_SPL_Title_Notice", "Notice")
     o.yesno = yesno == true
     o.target = target
     o.callback = callback
@@ -950,7 +950,7 @@ function SPLMainPanel:createChildren()
     )
     self.themeButton:initialise()
     self.themeButton:instantiate()
-    self.themeButton.tooltip = uiText("SPL_Tooltip_Theme", "Change color theme")
+    self.themeButton.tooltip = uiText("IGUI_SPL_Tooltip_Theme", "Change color theme")
     self:addChild(self.themeButton)
 
     local tabGap = 4
@@ -980,15 +980,15 @@ function SPLMainPanel:createChildren()
 
     local row1Y = self.list:getBottom() + PAD
     local halfWidth = math.floor((self.width - PAD * 3) / 2)
-    self.addButton = self:createFooterButton(PAD, row1Y, halfWidth, uiText("SPL_Button_NewTask", "Create plan"), SPLMainPanel.onAdd)
-    self.editButton = self:createFooterButton(PAD * 2 + halfWidth, row1Y, halfWidth, uiText("SPL_Button_Edit", "Edit"), SPLMainPanel.onEdit)
+    self.addButton = self:createFooterButton(PAD, row1Y, halfWidth, uiText("IGUI_SPL_Button_NewTask", "Create plan"), SPLMainPanel.onAdd)
+    self.editButton = self:createFooterButton(PAD * 2 + halfWidth, row1Y, halfWidth, uiText("IGUI_SPL_Button_Edit", "Edit"), SPLMainPanel.onEdit)
 
     local row2Y = row1Y + BUTTON_HEIGHT + PAD
     local quarterWidth = math.floor((self.width - PAD * 5) / 4)
-    self.subtaskButton = self:createFooterButton(PAD, row2Y, quarterWidth, uiText("SPL_Button_AddSubtask", "Add subtask"), SPLMainPanel.onAddSubtask)
-    self.secondaryButton = self:createFooterButton(PAD * 2 + quarterWidth, row2Y, quarterWidth, uiText("SPL_Button_Plan", "Plan"), SPLMainPanel.onSecondaryAction)
-    self.primaryButton = self:createFooterButton(PAD * 3 + quarterWidth * 2, row2Y, quarterWidth, uiText("SPL_Button_Complete", "Complete"), SPLMainPanel.onPrimaryAction)
-    self.deleteButton = self:createFooterButton(PAD * 4 + quarterWidth * 3, row2Y, self.width - PAD * 5 - quarterWidth * 3, uiText("SPL_Button_DeleteTask", "Delete plan"), SPLMainPanel.onDelete)
+    self.subtaskButton = self:createFooterButton(PAD, row2Y, quarterWidth, uiText("IGUI_SPL_Button_AddSubtask", "Add subtask"), SPLMainPanel.onAddSubtask)
+    self.secondaryButton = self:createFooterButton(PAD * 2 + quarterWidth, row2Y, quarterWidth, uiText("IGUI_SPL_Button_Plan", "Plan"), SPLMainPanel.onSecondaryAction)
+    self.primaryButton = self:createFooterButton(PAD * 3 + quarterWidth * 2, row2Y, quarterWidth, uiText("IGUI_SPL_Button_Complete", "Complete"), SPLMainPanel.onPrimaryAction)
+    self.deleteButton = self:createFooterButton(PAD * 4 + quarterWidth * 3, row2Y, self.width - PAD * 5 - quarterWidth * 3, uiText("IGUI_SPL_Button_DeleteTask", "Delete plan"), SPLMainPanel.onDelete)
 
     self.resizeWidget = SPLResizeWidget:new(
         self.width - RESIZE_HANDLE_SIZE,
@@ -1323,8 +1323,8 @@ function SPLMainPanel:updateButtons()
     local hasSelection = selectedValue ~= nil
 
     if isTracking then
-        self.addButton:setTitle(uiText("SPL_Button_TrackItem", "Track item"))
-        self.editButton:setTitle(uiText("SPL_Button_RemoveTracking", "Remove tracking"))
+        self.addButton:setTitle(uiText("IGUI_SPL_Button_TrackItem", "Track item"))
+        self.editButton:setTitle(uiText("IGUI_SPL_Button_RemoveTracking", "Remove tracking"))
         SPLThemes.setButtonEnabled(self.addButton, editable)
         SPLThemes.setButtonEnabled(self.editButton, editable and hasSelection)
         self.subtaskButton:setVisible(false)
@@ -1340,13 +1340,13 @@ function SPLMainPanel:updateButtons()
     self.deleteButton:setVisible(true)
     self.addButton:setTitle(
         self.currentTab == SurvivalPlannerList.STATUS_DONE
-            and uiText("SPL_Button_ClearDone", "Clear done")
-            or uiText("SPL_Button_NewTask", "Create plan")
+            and uiText("IGUI_SPL_Button_ClearDone", "Clear done")
+            or uiText("IGUI_SPL_Button_NewTask", "Create plan")
     )
     SPLThemes.setButtonEnabled(self.addButton, editable and (
         self.currentTab ~= SurvivalPlannerList.STATUS_DONE or #self.list.items > 0
     ))
-    self.editButton:setTitle(uiText("SPL_Button_Edit", "Edit"))
+    self.editButton:setTitle(uiText("IGUI_SPL_Button_Edit", "Edit"))
     SPLThemes.setButtonEnabled(self.editButton, editable and selectedTask ~= nil)
     SPLThemes.setButtonEnabled(
         self.subtaskButton,
@@ -1355,17 +1355,17 @@ function SPLMainPanel:updateButtons()
     SPLThemes.setButtonEnabled(self.deleteButton, editable and selectedTask ~= nil)
 
     if self.currentTab == SurvivalPlannerList.STATUS_ACTIVE then
-        self.secondaryButton:setTitle(uiText("SPL_Button_Plan", "Move to planned"))
-        self.primaryButton:setTitle(uiText("SPL_Button_Complete", "Complete"))
+        self.secondaryButton:setTitle(uiText("IGUI_SPL_Button_Plan", "Move to planned"))
+        self.primaryButton:setTitle(uiText("IGUI_SPL_Button_Complete", "Complete"))
         SPLThemes.setButtonEnabled(self.secondaryButton, editable and selectedTask ~= nil)
         SPLThemes.setButtonEnabled(self.primaryButton, editable and selectedTask ~= nil)
     elseif self.currentTab == SurvivalPlannerList.STATUS_PLANNED then
         self.secondaryButton:setVisible(false)
-        self.primaryButton:setTitle(uiText("SPL_Button_Activate", "Make active"))
+        self.primaryButton:setTitle(uiText("IGUI_SPL_Button_Activate", "Make active"))
         SPLThemes.setButtonEnabled(self.primaryButton, editable and selectedTask ~= nil)
     else
         self.secondaryButton:setVisible(false)
-        self.primaryButton:setTitle(uiText("SPL_Button_Reopen", "Reopen"))
+        self.primaryButton:setTitle(uiText("IGUI_SPL_Button_Reopen", "Reopen"))
         SPLThemes.setButtonEnabled(self.primaryButton, editable and selectedTask ~= nil)
         self.subtaskButton:setVisible(false)
     end
@@ -1414,11 +1414,11 @@ function SPLMainPanel:requireEditAccess()
 
     local message
     if not hasWritingTool and not hasEraser then
-        message = uiText("SPL_Message_NeedBoth", "You need a writing implement and an eraser to edit this planner.")
+        message = uiText("IGUI_SPL_Message_NeedBoth", "You need a writing implement and an eraser to edit this planner.")
     elseif not hasWritingTool then
-        message = uiText("SPL_Message_NeedWritingTool", "You need a writing implement to edit this planner.")
+        message = uiText("IGUI_SPL_Message_NeedWritingTool", "You need a writing implement to edit this planner.")
     else
-        message = uiText("SPL_Message_NeedEraser", "You need an eraser to edit this planner.")
+        message = uiText("IGUI_SPL_Message_NeedEraser", "You need an eraser to edit this planner.")
     end
     self:showMessage(message)
     return false
@@ -1475,7 +1475,7 @@ function SPLMainPanel:onAdd()
     end
     if self.currentTab == SurvivalPlannerList.STATUS_DONE then
         self:showConfirm(
-            uiText("SPL_Confirm_ClearDone", "Delete every completed plan?"),
+            uiText("IGUI_SPL_Confirm_ClearDone", "Delete every completed plan?"),
             SPLMainPanel.doClearDone,
             nil,
             nil,
@@ -1486,7 +1486,7 @@ function SPLMainPanel:onAdd()
     if self.currentTab == "tracking" then
         SPLItemPicker.open(
             self.playerNum,
-            uiText("SPL_Title_TrackItem", "Choose an item to track"),
+            uiText("IGUI_SPL_Title_TrackItem", "Choose an item to track"),
             nil,
             self,
             SPLMainPanel.onTrackedItemPicked,
@@ -1534,7 +1534,7 @@ function SPLMainPanel:onTaskIconClicked(task)
     end
     SPLItemPicker.open(
         self.playerNum,
-        uiText("SPL_Title_ChooseIcon", "Choose plan icon"),
+        uiText("IGUI_SPL_Title_ChooseIcon", "Choose plan icon"),
         task.iconType,
         self,
         SPLMainPanel.onTaskIconPicked,
@@ -1613,7 +1613,7 @@ function SPLMainPanel:onSubtaskDelete(task, subtask)
         return
     end
     self:showConfirm(
-        uiText("SPL_Confirm_DeleteSubtask", "Delete this subtask?") .. "\n" .. subtask.title,
+        uiText("IGUI_SPL_Confirm_DeleteSubtask", "Delete this subtask?") .. "\n" .. subtask.title,
         SPLMainPanel.doDeleteSubtask,
         task.id,
         subtask.id,
@@ -1636,12 +1636,12 @@ function SPLMainPanel:onPrimaryAction()
     local message
     if self.currentTab == SurvivalPlannerList.STATUS_ACTIVE then
         status = SurvivalPlannerList.STATUS_DONE
-        message = uiText("SPL_Confirm_CompleteTask", "Mark this plan as completed?")
+        message = uiText("IGUI_SPL_Confirm_CompleteTask", "Mark this plan as completed?")
     else
         status = SurvivalPlannerList.STATUS_ACTIVE
         message = self.currentTab == SurvivalPlannerList.STATUS_PLANNED
-            and uiText("SPL_Confirm_ActivateTask", "Move this plan to Active?")
-            or uiText("SPL_Confirm_ReopenTask", "Reopen this completed plan?")
+            and uiText("IGUI_SPL_Confirm_ActivateTask", "Move this plan to Active?")
+            or uiText("IGUI_SPL_Confirm_ReopenTask", "Reopen this completed plan?")
     end
     self:showConfirm(message .. "\n" .. task.title, SPLMainPanel.doSetStatus, task.id, status)
 end
@@ -1652,7 +1652,7 @@ function SPLMainPanel:onSecondaryAction()
         return
     end
     self:showConfirm(
-        uiText("SPL_Confirm_PlanTask", "Move this plan to Planned?") .. "\n" .. task.title,
+        uiText("IGUI_SPL_Confirm_PlanTask", "Move this plan to Planned?") .. "\n" .. task.title,
         SPLMainPanel.doSetStatus,
         task.id,
         SurvivalPlannerList.STATUS_PLANNED
@@ -1671,7 +1671,7 @@ function SPLMainPanel:onDelete()
         return
     end
     self:showConfirm(
-        uiText("SPL_Confirm_DeleteTask", "Permanently delete this plan?") .. "\n" .. task.title,
+        uiText("IGUI_SPL_Confirm_DeleteTask", "Permanently delete this plan?") .. "\n" .. task.title,
         SPLMainPanel.doDeleteTask,
         task.id,
         nil,
@@ -1698,7 +1698,7 @@ function SPLMainPanel:onTrackedItemPicked(entry)
     if SurvivalPlannerList.addTrackedItem(self.planner, entry.fullType, entry.name) then
         self:refreshList(entry.fullType)
     else
-        self:showMessage(uiText("SPL_Message_AlreadyTracked", "That item is already being tracked."))
+        self:showMessage(uiText("IGUI_SPL_Message_AlreadyTracked", "That item is already being tracked."))
     end
 end
 
@@ -1708,7 +1708,7 @@ function SPLMainPanel:onRemoveTracking()
         return
     end
     self:showConfirm(
-        uiText("SPL_Confirm_RemoveTracking", "Stop tracking this item?") .. "\n" .. value.name,
+        uiText("IGUI_SPL_Confirm_RemoveTracking", "Stop tracking this item?") .. "\n" .. value.name,
         SPLMainPanel.doRemoveTracking,
         value.fullType,
         nil,
@@ -1758,9 +1758,9 @@ function SPLMainPanel:prerender()
     local statusText
     local statusColor = theme.statusEditable
     if self.editAccess then
-        statusText = uiText("SPL_Status_Editable", "Writing tool + eraser found — editing enabled")
+        statusText = uiText("IGUI_SPL_Status_Editable", "Writing tool + eraser found — editing enabled")
     else
-        statusText = uiText("SPL_Status_ReadOnly", "Read-only — carry a writing tool and an eraser to edit")
+        statusText = uiText("IGUI_SPL_Status_ReadOnly", "Read-only — carry a writing tool and an eraser to edit")
         statusColor = theme.statusReadonly
     end
     self:drawTextCentre(

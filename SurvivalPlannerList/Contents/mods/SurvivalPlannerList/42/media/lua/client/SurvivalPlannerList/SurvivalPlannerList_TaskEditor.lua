@@ -47,7 +47,7 @@ function SPLTaskEditor:createChildren()
         145,
         180,
         BUTTON_HEIGHT,
-        uiText("SPL_Button_ChooseIcon", "Choose icon"),
+        uiText("IGUI_SPL_Button_ChooseIcon", "Choose icon"),
         self,
         SPLTaskEditor.onChooseIcon
     )
@@ -67,7 +67,7 @@ function SPLTaskEditor:createChildren()
         mapButtonY,
         mapButtonWidth,
         BUTTON_HEIGHT,
-        uiText("SPL_Button_ChooseMapTarget", "Choose on map"),
+        uiText("IGUI_SPL_Button_ChooseMapTarget", "Choose on map"),
         self,
         SPLTaskEditor.onChooseMapTarget
     )
@@ -81,7 +81,7 @@ function SPLTaskEditor:createChildren()
         mapButtonY,
         mapButtonWidth,
         BUTTON_HEIGHT,
-        uiText("SPL_Button_CurrentPosition", "Use current position"),
+        uiText("IGUI_SPL_Button_CurrentPosition", "Use current position"),
         self,
         SPLTaskEditor.onUseCurrentPosition
     )
@@ -95,7 +95,7 @@ function SPLTaskEditor:createChildren()
         mapButtonY,
         mapButtonWidth,
         BUTTON_HEIGHT,
-        uiText("SPL_Button_ClearMapTarget", "Clear target"),
+        uiText("IGUI_SPL_Button_ClearMapTarget", "Clear target"),
         self,
         SPLTaskEditor.onClearMapTarget
     )
@@ -111,7 +111,7 @@ function SPLTaskEditor:createChildren()
         mapPanelY + 72,
         mapCheckWidth,
         30,
-        uiText("SPL_Check_TrackTask", "Show map navigation"),
+        uiText("IGUI_SPL_Check_TrackTask", "Show map navigation"),
         self,
         SPLTaskEditor.onToggleNavigation,
         self.navigationEnabled
@@ -125,7 +125,7 @@ function SPLTaskEditor:createChildren()
         mapPanelY + 72,
         self.width - PAD - self.navigationButton:getRight() - mapCheckGap,
         30,
-        uiText("SPL_Check_AutoArrival", "Auto-complete on arrival"),
+        uiText("IGUI_SPL_Check_AutoArrival", "Auto-complete on arrival"),
         self,
         SPLTaskEditor.onToggleArrival,
         self.autoCompleteOnArrival
@@ -156,7 +156,7 @@ function SPLTaskEditor:createChildren()
         goalListY,
         controlsWidth,
         BUTTON_HEIGHT,
-        uiText("SPL_Button_AddGoal", "Add item"),
+        uiText("IGUI_SPL_Button_AddGoal", "Add item"),
         self,
         SPLTaskEditor.onAddGoal
     )
@@ -183,7 +183,7 @@ function SPLTaskEditor:createChildren()
         goalListY + 104,
         controlsWidth,
         BUTTON_HEIGHT,
-        uiText("SPL_Button_ApplyQuantity", "Apply quantity"),
+        uiText("IGUI_SPL_Button_ApplyQuantity", "Apply quantity"),
         self,
         SPLTaskEditor.onApplyQuantity
     )
@@ -197,7 +197,7 @@ function SPLTaskEditor:createChildren()
         goalListY + 142,
         controlsWidth,
         BUTTON_HEIGHT,
-        uiText("SPL_Button_RemoveGoal", "Remove item"),
+        uiText("IGUI_SPL_Button_RemoveGoal", "Remove item"),
         self,
         SPLTaskEditor.onRemoveGoal
     )
@@ -211,7 +211,7 @@ function SPLTaskEditor:createChildren()
         551,
         self.width - PAD * 2,
         34,
-        uiText("SPL_Check_AutoTask", "Auto-complete when all goals and subtasks are complete"),
+        uiText("IGUI_SPL_Check_AutoTask", "Auto-complete when all goals and subtasks are complete"),
         self,
         SPLTaskEditor.onToggleAuto,
         self.autoComplete
@@ -226,7 +226,7 @@ function SPLTaskEditor:createChildren()
         buttonY,
         132,
         BUTTON_HEIGHT,
-        uiText("SPL_Button_Save", "Save"),
+        uiText("IGUI_SPL_Button_Save", "Save"),
         self,
         SPLTaskEditor.onSave
     )
@@ -240,7 +240,7 @@ function SPLTaskEditor:createChildren()
         buttonY,
         120,
         BUTTON_HEIGHT,
-        uiText("SPL_Button_Cancel", "Cancel"),
+        uiText("IGUI_SPL_Button_Cancel", "Cancel"),
         self,
         SPLTaskEditor.onCancel
     )
@@ -270,7 +270,7 @@ end
 function SPLTaskEditor:onChooseIcon()
     SPLItemPicker.open(
         self.playerNum,
-        uiText("SPL_Title_ChooseIcon", "Choose plan icon"),
+        uiText("IGUI_SPL_Title_ChooseIcon", "Choose plan icon"),
         self.iconType,
         self,
         SPLTaskEditor.onIconPicked,
@@ -298,7 +298,7 @@ function SPLTaskEditor:onChooseMapTarget()
         function(target)
             if target then
                 if SurvivalPlannerList.trim(target.name) == "" then
-                    target.name = uiText("SPL_Map_Target", "Map target")
+                    target.name = uiText("IGUI_SPL_Map_Target", "Map target")
                 end
                 editor.mapTargets = {target}
                 editor.trackedTargetId = target.id
@@ -320,7 +320,7 @@ function SPLTaskEditor:onUseCurrentPosition()
     local current = self:getMapTarget() or {}
     local target = {
         id = current.id,
-        name = uiText("SPL_Map_CurrentPosition", "Current position"),
+        name = uiText("IGUI_SPL_Map_CurrentPosition", "Current position"),
         x = player:getX(),
         y = player:getY(),
         z = math.floor(player:getZ()),
@@ -358,7 +358,7 @@ end
 function SPLTaskEditor:onAddGoal()
     SPLItemPicker.open(
         self.playerNum,
-        uiText("SPL_Title_AddItemGoal", "Add an item goal"),
+        uiText("IGUI_SPL_Title_AddItemGoal", "Add an item goal"),
         nil,
         self,
         SPLTaskEditor.onGoalPicked,
@@ -464,8 +464,8 @@ function SPLTaskEditor:prerender()
     self:drawRectBorder(0, 0, self.width, self.height, 1, theme.panelBorder.r, theme.panelBorder.g, theme.panelBorder.b)
     self:drawTextCentre(self.windowTitle, self.width / 2, 10, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
 
-    self:drawText(uiText("SPL_Label_TaskTitle", "Plan title"), PAD, 47, theme.mutedText.r, theme.mutedText.g, theme.mutedText.b, 1, UIFont.Small)
-    self:drawText(uiText("SPL_Label_Icon", "Icon"), PAD, 112, theme.mutedText.r, theme.mutedText.g, theme.mutedText.b, 1, UIFont.Small)
+    self:drawText(uiText("IGUI_SPL_Label_TaskTitle", "Plan title"), PAD, 47, theme.mutedText.r, theme.mutedText.g, theme.mutedText.b, 1, UIFont.Small)
+    self:drawText(uiText("IGUI_SPL_Label_Icon", "Icon"), PAD, 112, theme.mutedText.r, theme.mutedText.g, theme.mutedText.b, 1, UIFont.Small)
     self:drawRect(PAD, 137, PREVIEW_SIZE, PREVIEW_SIZE, 0.96, theme.card.r, theme.card.g, theme.card.b)
     self:drawRectBorder(PAD, 137, PREVIEW_SIZE, PREVIEW_SIZE, 1, theme.cardBorder.r, theme.cardBorder.g, theme.cardBorder.b)
     local icon = SurvivalPlannerList.getItemTexture(self.iconType)
@@ -473,24 +473,24 @@ function SPLTaskEditor:prerender()
         self:drawTextureScaledAspect(icon, PAD + 6, 143, PREVIEW_SIZE - 12, PREVIEW_SIZE - 12, 1, 1, 1, 1)
     end
 
-    self:drawText(uiText("SPL_Label_MapTarget", "Map target"), PAD, 203, theme.mutedText.r, theme.mutedText.g, theme.mutedText.b, 1, UIFont.Small)
+    self:drawText(uiText("IGUI_SPL_Label_MapTarget", "Map target"), PAD, 203, theme.mutedText.r, theme.mutedText.g, theme.mutedText.b, 1, UIFont.Small)
     self:drawRect(PAD, 227, self.width - PAD * 2, 108, 0.80, theme.card.r, theme.card.g, theme.card.b)
     self:drawRectBorder(PAD, 227, self.width - PAD * 2, 108, 0.75, theme.cardBorder.r, theme.cardBorder.g, theme.cardBorder.b)
     local mapTarget = self:getMapTarget()
-    local mapTargetText = uiText("SPL_Label_NoMapTarget", "No map target selected")
+    local mapTargetText = uiText("IGUI_SPL_Label_NoMapTarget", "No map target selected")
     if mapTarget then
         mapTargetText = string.format(
             "%s   X: %d   Y: %d",
-            mapTarget.name or uiText("SPL_Map_Target", "Map target"),
+            mapTarget.name or uiText("IGUI_SPL_Map_Target", "Map target"),
             math.floor(mapTarget.x),
             math.floor(mapTarget.y)
         )
     end
     self:drawText(mapTargetText, PAD + 12, 236, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
 
-    self:drawText(uiText("SPL_Label_ItemGoals", "Item goals"), PAD, 348, theme.mutedText.r, theme.mutedText.g, theme.mutedText.b, 1, UIFont.Small)
+    self:drawText(uiText("IGUI_SPL_Label_ItemGoals", "Item goals"), PAD, 348, theme.mutedText.r, theme.mutedText.g, theme.mutedText.b, 1, UIFont.Small)
     self:drawText(
-        uiText("SPL_Label_Quantity", "Quantity"),
+        uiText("IGUI_SPL_Label_Quantity", "Quantity"),
         self.quantityEntry.x,
         self.quantityEntry.y - 22,
         theme.mutedText.r,
@@ -501,7 +501,7 @@ function SPLTaskEditor:prerender()
     )
     if #self.goals == 0 then
         self:drawTextCentre(
-            uiText("SPL_Label_NoGoals", "No item goals"),
+            uiText("IGUI_SPL_Label_NoGoals", "No item goals"),
             self.goalList.x + self.goalList.width / 2,
             self.goalList.y + 72,
             theme.subtleText.r,
@@ -512,7 +512,7 @@ function SPLTaskEditor:prerender()
         )
     end
     self:drawText(
-        uiText("SPL_Hint_AutoTools", "Automatic completion requires a writing tool and an eraser."),
+        uiText("IGUI_SPL_Hint_AutoTools", "Automatic completion requires a writing tool and an eraser."),
         PAD + 2,
         591,
         theme.subtleText.r,
@@ -536,8 +536,8 @@ function SPLTaskEditor:new(playerNum, task, status, saveTarget, onSave)
     o.saveTarget = saveTarget
     o.onSaveCallback = onSave
     o.windowTitle = task
-        and uiText("SPL_Title_EditTask", "Edit plan")
-        or uiText("SPL_Title_NewTask", "New plan")
+        and uiText("IGUI_SPL_Title_EditTask", "Edit plan")
+        or uiText("IGUI_SPL_Title_NewTask", "New plan")
     o.iconType = task and task.iconType or SurvivalPlannerList.DEFAULT_ICON
     o.goals = SPLGoalUI.copyGoals(task and task.goals or nil)
     o.mapTargets = SurvivalPlannerList.copyMapTargets(task and task.mapTargets or nil)

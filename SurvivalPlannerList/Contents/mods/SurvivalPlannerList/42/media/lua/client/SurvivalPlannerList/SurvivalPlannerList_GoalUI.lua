@@ -208,7 +208,7 @@ end
 
 function SPLCheckButton:new(x, y, width, height, labelText, target, callback, checked)
     local o = ISButton.new(self, x, y, width, height, "", target, callback)
-    o.labelText = labelText or uiText("SPL_AutoComplete", "Auto-complete")
+    o.labelText = labelText or uiText("IGUI_SPL_AutoComplete", "Auto-complete")
     o.checked = checked == true
     o:setChecked(o.checked)
     return o

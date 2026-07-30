@@ -73,7 +73,7 @@ end
 
 local function drawTooltip(worldMap, navigation, markerX, markerY)
     local theme = SPLThemes.get(worldMap.playerNum or 0)
-    local title = navigation.task.title or uiText("SPL_Map_Target", "Map target")
+    local title = navigation.task.title or uiText("IGUI_SPL_Map_Target", "Map target")
     local maxTextWidth = 270
     local wrapped = getTextManager():WrapText(UIFont.Small, title, maxTextWidth, 2, "...")
     local textWidth = math.min(maxTextWidth, getTextManager():MeasureStringX(UIFont.Small, wrapped))
@@ -240,7 +240,7 @@ if not ISWorldMap._SPLMapIntegrationWrapped then
             self:drawRect(bannerX, 18, 5, 48, 1, theme.accent.r, theme.accent.g, theme.accent.b)
             self:drawRectBorder(bannerX, 18, bannerWidth, 48, 1, theme.dialogBorder.r, theme.dialogBorder.g, theme.dialogBorder.b)
             self:drawTextCentre(
-                uiText("SPL_Map_PlaceHint", "Click the map to set the target. Drag to pan; Esc cancels."),
+                uiText("IGUI_SPL_Map_PlaceHint", "Click the map to set the target. Drag to pan; Esc cancels."),
                 self.width / 2,
                 33,
                 theme.text.r,

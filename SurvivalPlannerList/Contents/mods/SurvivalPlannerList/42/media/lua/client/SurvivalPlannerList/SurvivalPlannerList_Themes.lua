@@ -142,7 +142,7 @@ end
 SPLThemes.DEFINITIONS = {
     notebook = {
         id = "notebook",
-        nameKey = "SPL_Theme_Notebook",
+        nameKey = "IGUI_SPL_Theme_Notebook",
         fallbackName = "Notebook",
 
         panel = color(0.82, 0.85, 0.85, 0.98),
@@ -196,7 +196,7 @@ SPLThemes.DEFINITIONS = {
 }
 
 SPLThemes.DEFINITIONS.red = darkTheme(
-    "red", "SPL_Theme_Red", "Red",
+    "red", "IGUI_SPL_Theme_Red", "Red",
     color(0.13, 0.085, 0.075, 0.98),
     color(0.17, 0.105, 0.09, 1),
     color(0.16, 0.10, 0.085, 1),
@@ -207,7 +207,7 @@ SPLThemes.DEFINITIONS.red = darkTheme(
 )
 
 SPLThemes.DEFINITIONS.green = darkTheme(
-    "green", "SPL_Theme_Green", "Green",
+    "green", "IGUI_SPL_Theme_Green", "Green",
     color(0.09, 0.105, 0.075, 0.98),
     color(0.12, 0.135, 0.09, 1),
     color(0.115, 0.13, 0.085, 1),
@@ -218,7 +218,7 @@ SPLThemes.DEFINITIONS.green = darkTheme(
 )
 
 SPLThemes.DEFINITIONS.yellow = darkTheme(
-    "yellow", "SPL_Theme_Yellow", "Yellow",
+    "yellow", "IGUI_SPL_Theme_Yellow", "Yellow",
     color(0.13, 0.115, 0.065, 0.98),
     color(0.17, 0.145, 0.075, 1),
     color(0.16, 0.135, 0.075, 1),
@@ -229,7 +229,7 @@ SPLThemes.DEFINITIONS.yellow = darkTheme(
 )
 
 SPLThemes.DEFINITIONS.purple = darkTheme(
-    "purple", "SPL_Theme_Purple", "Purple",
+    "purple", "IGUI_SPL_Theme_Purple", "Purple",
     color(0.105, 0.085, 0.13, 0.98),
     color(0.14, 0.105, 0.17, 1),
     color(0.135, 0.10, 0.16, 1),
@@ -240,7 +240,7 @@ SPLThemes.DEFINITIONS.purple = darkTheme(
 )
 
 SPLThemes.DEFINITIONS.neutral = darkTheme(
-    "neutral", "SPL_Theme_Neutral", "Neutral",
+    "neutral", "IGUI_SPL_Theme_Neutral", "Neutral",
     color(0.095, 0.10, 0.105, 0.98),
     color(0.125, 0.13, 0.135, 1),
     color(0.13, 0.135, 0.14, 1),

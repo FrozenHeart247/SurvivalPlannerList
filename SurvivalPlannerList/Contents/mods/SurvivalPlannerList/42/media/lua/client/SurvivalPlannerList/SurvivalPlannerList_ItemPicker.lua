@@ -74,8 +74,8 @@ function SPLItemPicker:createChildren()
     self.search:instantiate()
     self.search:setClearButton(true)
     self.search.tooltip = self.catalogMode == "icons"
-        and uiText("SPL_Tooltip_SearchIcons", "Search plan icons and item icons")
-        or uiText("SPL_Tooltip_SearchItems", "Search by item name or full type")
+        and uiText("IGUI_SPL_Tooltip_SearchIcons", "Search plan icons and item icons")
+        or uiText("IGUI_SPL_Tooltip_SearchItems", "Search by item name or full type")
     self:addChild(self.search)
 
     local listY = self.search:getBottom() + 8
@@ -98,7 +98,7 @@ function SPLItemPicker:createChildren()
         buttonY,
         130,
         BUTTON_HEIGHT,
-        uiText("SPL_Button_Choose", "Choose"),
+        uiText("IGUI_SPL_Button_Choose", "Choose"),
         self,
         SPLItemPicker.onChoose
     )
@@ -145,7 +145,7 @@ function SPLItemPicker:refreshCatalog(force)
         local name = string.lower(entry.name or "")
         local fullType = string.lower(entry.fullType or "")
         local category = entry.isCustomIcon
-            and string.lower(uiText("SPL_Category_PlannerIcon", "Planner icon"))
+            and string.lower(uiText("IGUI_SPL_Category_PlannerIcon", "Planner icon"))
             or ""
         if query == ""
             or string.find(name, query, 1, true)
@@ -200,7 +200,7 @@ function SPLItemPicker:drawCatalogItem(y, row, alt)
     local textWidth = contentWidth - 62
     local itemName = getTextManager():WrapText(UIFont.Small, entry.name or entry.fullType, textWidth, 1, "...")
     local details = entry.isCustomIcon
-        and uiText("SPL_Category_PlannerIcon", "Planner icon")
+        and uiText("IGUI_SPL_Category_PlannerIcon", "Planner icon")
         or (entry.fullType or "")
     local fullType = getTextManager():WrapText(UIFont.Small, details, textWidth, 1, "...")
     self:drawText(itemName, 54, y + 7, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
@@ -260,7 +260,7 @@ function SPLItemPicker:new(playerNum, titleText, initialType, pickTarget, onPick
     local o = ISPanel.new(self, x, y, width, height)
     o.playerNum = playerNum or 0
     o.theme = SPLThemes.get(o.playerNum)
-    o.titleText = titleText or uiText("SPL_Title_ItemPicker", "Choose an item")
+    o.titleText = titleText or uiText("IGUI_SPL_Title_ItemPicker", "Choose an item")
     o.initialType = initialType
     o.pickTarget = pickTarget
     o.onPick = onPick

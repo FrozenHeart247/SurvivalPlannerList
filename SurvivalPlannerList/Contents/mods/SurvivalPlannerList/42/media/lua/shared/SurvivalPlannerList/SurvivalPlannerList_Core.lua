@@ -926,31 +926,31 @@ end
 SurvivalPlannerList.registerTaskIcon(
     "SPL.Icon.Travel",
     "media/textures/SPL_Icon_Travel.png",
-    "SPL_Icon_Travel",
+    "IGUI_SPL_Icon_Travel",
     "Travel"
 )
 SurvivalPlannerList.registerTaskIcon(
     "SPL.Icon.Animals",
     "media/textures/SPL_Icon_Animals.png",
-    "SPL_Icon_Animals",
+    "IGUI_SPL_Icon_Animals",
     "Animals"
 )
 SurvivalPlannerList.registerTaskIcon(
     "SPL.Icon.Car",
     "media/textures/SPL_Icon_Car.png",
-    "SPL_Icon_Car",
+    "IGUI_SPL_Icon_Car",
     "Vehicle"
 )
 SurvivalPlannerList.registerTaskIcon(
     "SPL.Icon.Unknown",
     "media/textures/SPL_Icon_Unknow.png",
-    "SPL_Icon_Unknown",
+    "IGUI_SPL_Icon_Unknown",
     "Unknown"
 )
 SurvivalPlannerList.registerTaskIcon(
     "SPL.Icon.CheckLocation",
     "media/textures/SPL_Icon_CheckLocation.png",
-    "SPL_Icon_CheckLocation",
+    "IGUI_SPL_Icon_CheckLocation",
     "Check location"
 )
 

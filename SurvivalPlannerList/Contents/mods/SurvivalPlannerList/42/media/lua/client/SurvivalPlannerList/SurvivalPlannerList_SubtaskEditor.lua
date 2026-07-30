@@ -61,7 +61,7 @@ function SPLSubtaskEditor:createChildren()
         goalListY,
         controlsWidth,
         BUTTON_HEIGHT,
-        uiText("SPL_Button_AddGoal", "Add item"),
+        uiText("IGUI_SPL_Button_AddGoal", "Add item"),
         self,
         SPLSubtaskEditor.onAddGoal
     )
@@ -88,7 +88,7 @@ function SPLSubtaskEditor:createChildren()
         goalListY + 104,
         controlsWidth,
         BUTTON_HEIGHT,
-        uiText("SPL_Button_ApplyQuantity", "Apply quantity"),
+        uiText("IGUI_SPL_Button_ApplyQuantity", "Apply quantity"),
         self,
         SPLSubtaskEditor.onApplyQuantity
     )
@@ -102,7 +102,7 @@ function SPLSubtaskEditor:createChildren()
         goalListY + 142,
         controlsWidth,
         BUTTON_HEIGHT,
-        uiText("SPL_Button_RemoveGoal", "Remove item"),
+        uiText("IGUI_SPL_Button_RemoveGoal", "Remove item"),
         self,
         SPLSubtaskEditor.onRemoveGoal
     )
@@ -116,7 +116,7 @@ function SPLSubtaskEditor:createChildren()
         326,
         self.width - PAD * 2,
         34,
-        uiText("SPL_Check_AutoSubtask", "Auto-complete when all item goals are carried"),
+        uiText("IGUI_SPL_Check_AutoSubtask", "Auto-complete when all item goals are carried"),
         self,
         SPLSubtaskEditor.onToggleAuto,
         self.autoComplete
@@ -131,7 +131,7 @@ function SPLSubtaskEditor:createChildren()
         buttonY,
         132,
         BUTTON_HEIGHT,
-        uiText("SPL_Button_Save", "Save"),
+        uiText("IGUI_SPL_Button_Save", "Save"),
         self,
         SPLSubtaskEditor.onSave
     )
@@ -145,7 +145,7 @@ function SPLSubtaskEditor:createChildren()
         buttonY,
         120,
         BUTTON_HEIGHT,
-        uiText("SPL_Button_Cancel", "Cancel"),
+        uiText("IGUI_SPL_Button_Cancel", "Cancel"),
         self,
         SPLSubtaskEditor.onCancel
     )
@@ -175,7 +175,7 @@ end
 function SPLSubtaskEditor:onAddGoal()
     SPLItemPicker.open(
         self.playerNum,
-        uiText("SPL_Title_AddItemGoal", "Add an item goal"),
+        uiText("IGUI_SPL_Title_AddItemGoal", "Add an item goal"),
         nil,
         self,
         SPLSubtaskEditor.onGoalPicked,
@@ -262,10 +262,10 @@ function SPLSubtaskEditor:prerender()
     self:drawRect(0, 0, self.width, HEADER_HEIGHT, 1, theme.header.r, theme.header.g, theme.header.b)
     self:drawRectBorder(0, 0, self.width, self.height, 1, theme.panelBorder.r, theme.panelBorder.g, theme.panelBorder.b)
     self:drawTextCentre(self.windowTitle, self.width / 2, 10, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
-    self:drawText(uiText("SPL_Label_SubtaskTitle", "Subtask title"), PAD, 47, theme.mutedText.r, theme.mutedText.g, theme.mutedText.b, 1, UIFont.Small)
-    self:drawText(uiText("SPL_Label_ItemGoals", "Item goals"), PAD, 115, theme.mutedText.r, theme.mutedText.g, theme.mutedText.b, 1, UIFont.Small)
+    self:drawText(uiText("IGUI_SPL_Label_SubtaskTitle", "Subtask title"), PAD, 47, theme.mutedText.r, theme.mutedText.g, theme.mutedText.b, 1, UIFont.Small)
+    self:drawText(uiText("IGUI_SPL_Label_ItemGoals", "Item goals"), PAD, 115, theme.mutedText.r, theme.mutedText.g, theme.mutedText.b, 1, UIFont.Small)
     self:drawText(
-        uiText("SPL_Label_Quantity", "Quantity"),
+        uiText("IGUI_SPL_Label_Quantity", "Quantity"),
         self.quantityEntry.x,
         self.quantityEntry.y - 22,
         theme.mutedText.r,
@@ -276,7 +276,7 @@ function SPLSubtaskEditor:prerender()
     )
     if #self.goals == 0 then
         self:drawTextCentre(
-            uiText("SPL_Label_NoGoals", "No item goals"),
+            uiText("IGUI_SPL_Label_NoGoals", "No item goals"),
             self.goalList.x + self.goalList.width / 2,
             self.goalList.y + 76,
             theme.subtleText.r,
@@ -287,7 +287,7 @@ function SPLSubtaskEditor:prerender()
         )
     end
     self:drawText(
-        uiText("SPL_Hint_AutoTools", "Automatic completion requires a writing tool and an eraser."),
+        uiText("IGUI_SPL_Hint_AutoTools", "Automatic completion requires a writing tool and an eraser."),
         PAD + 2,
         366,
         theme.subtleText.r,
@@ -311,8 +311,8 @@ function SPLSubtaskEditor:new(playerNum, taskId, subtask, saveTarget, onSave)
     o.saveTarget = saveTarget
     o.onSaveCallback = onSave
     o.windowTitle = subtask
-        and uiText("SPL_Title_EditSubtask", "Edit subtask")
-        or uiText("SPL_Title_NewSubtask", "New subtask")
+        and uiText("IGUI_SPL_Title_EditSubtask", "Edit subtask")
+        or uiText("IGUI_SPL_Title_NewSubtask", "New subtask")
     o.goals = SPLGoalUI.copyGoals(subtask and subtask.goals or nil)
     o.autoComplete = subtask and subtask.autoComplete == true or false
     o.backgroundColor = SPLThemes.copyColor(o.theme.panel)
